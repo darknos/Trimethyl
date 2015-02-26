@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='UIFactory-Window'>/**
+</span> * @class  	UIFactory.Window
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+module.exports = function(args) {
+	_.defaults(args, {
+
+<span id='UIFactory-Window-property-displayHomeAsUp'>		/**
+</span>		 * @property {Boolean} [displayHomeAsUp=false] **(Android only)** Set the property `displayHomeAsUp` and the relative close listener.
+		 */
+		displayHomeAsUp: false,
+
+<span id='UIFactory-Window-property-backButtonDisabled'>		/**
+</span>		 * @property {Boolean} [backButtonDisabled=false] **(Android only)** Disable the hardware back button (do nothing on click)
+		 */
+		backButtonDisabled: false,
+
+<span id='UIFactory-Window-property-deferredBackgroundImage'>		/**
+</span>		 * @property {String} [deferredBackgroundImage=null] View {@link setDeferredBackgroundImage}
+		 */
+		deferredBackgroundImage: null,
+
+<span id='UIFactory-Window-property-backgroundCoverImage'>		/**
+</span>		 * @property {String} [backgroundCoverImage=null] View {@link setBackgroundCoverImage}
+		 */
+		backgroundCoverImage: null,
+
+<span id='UIFactory-Window-property-activityProperties'>		/**
+</span>		 * @property {Object} [activityProperties=null] View {@link setActivityProperties}
+		 */
+		activityProperties: null,
+
+<span id='UIFactory-Window-property-actionBarProperties'>		/**
+</span>		 * @property {Object} [actionBarProperties=null] View {@link setActionBarProperties}
+		 */
+		actionBarProperties: null,
+
+<span id='UIFactory-Window-property-rightNavButton'>		/**
+</span>		 * @property {Object} [rightNavButton=null] View {@link setRightNavButton}
+		 */
+		rightNavButton: null,
+
+<span id='UIFactory-Window-property-activityButtons'>		/**
+</span>		 * @property {Array} [activityButtons=null] View {@link addActivityButton}
+		 */
+		activityButtons: null,
+
+<span id='UIFactory-Window-property-activityButton'>		/**
+</span>		 * @property {Object} [activityButton=null] View {@link setActivityButton}
+		 */
+		activityButton: null
+
+	});
+
+	var $this = Ti.UI.createWindow(args);
+
+	$this.opened = false;
+	var onOpenFuncs = [];
+	function onOpen(callback) {
+		if ($this.opened === true) {
+			callback();
+			return;
+		}
+		onOpenFuncs.push(callback);
+	}
+
+	$this.addEventListener(&#39;open&#39;, function() {
+		$this.opened = true;
+		_.each(onOpenFuncs, function(openFunc){
+			openFunc();
+		});
+	});
+
+<span id='UIFactory-Window-method-setDeferredBackgroundImage'>	/**
+</span>	 * @method setDeferredBackgroundImage
+	 * When large images are requested, it&#39;s useful to set `deferredBackgroundImage` to set the background on window open.
+	 * @param {String} val
+	 */
+	$this.setDeferredBackgroundImage = function(val) {
+		onOpen(function() {
+			$this.backgroundImage = val;
+		});
+	};
+
+<span id='UIFactory-Window-method-setBackgroundCoverImage'>	/**
+</span>	 * @method setBackgroundCoverImage
+	 * @param {String} url
+	 */
+	$this.setBackgroundCoverImage = function(url) {
+		return require(&#39;T/uiutil&#39;).setBackgroundCoverForView($this, url);
+	};
+
+	if (OS_ANDROID) {
+
+<span id='UIFactory-Window-method-setActivityProperties'>		/**
+</span>		 * @method setActivityProperties
+		 * Set the properties for the Activity
+		 * @param {Object} props
+		 */
+		$this.setActivityProperties = function(props) {
+			_.each(props, function(v, k) {
+				$this.activity[k] = v;
+			});
+		};
+
+<span id='UIFactory-Window-method-setActionBarProperties'>		/**
+</span>		 * @method setActionBarProperties
+		 * Set the properties for the ActionBar
+		 * @param {Object}   props
+		 * @param {Function} callback
+		 */
+		$this.setActionBarProperties = function(props, callback) {
+			onOpen(function(){
+				if ($this.activity.actionBar == null) return;
+
+				_.each(props, function(v, k) {
+					$this.activity.actionBar[k] = v;
+				});
+				if (_.isFunction(callback)) callback($this.activity.actionBar);
+			});
+		};
+
+
+		var activityButtons = [];
+
+		$this.setActivityProperties({
+			onCreateOptionsMenu: function(e) {
+				_.each(activityButtons, function(btn) {
+					var menuItem = e.menu.add({
+						title: btn.title || &#39;&#39;,
+						icon: btn.icon || btn.image || &#39;&#39;,
+						showAsAction: btn.showAsAction || Ti.Android.SHOW_AS_ACTION_ALWAYS
+					});
+					menuItem.addEventListener(&#39;click&#39;, function(){
+						if (_.isFunction(btn.click)) btn.click();
+						if (_.isFunction(btn.fireEvent)) btn.fireEvent(&#39;click&#39;);
+					});
+				});
+			}
+		});
+
+
+<span id='UIFactory-Window-method-addActivityButton'>		/**
+</span>		 * @method addActivityButton
+		 * **Android specific**
+		 * @param {Object} opt
+		 */
+		$this.addActivityButton = function(opt) {
+			if (opt != null) {
+				while (opt &amp;&amp; opt.children &amp;&amp; opt.children[0]) opt = opt.children[0]; // hack for Alloy, just ignore it
+				activityButtons.push(opt);
+			}
+			if (_.isFunction($this.activity.invalidateOptionsMenu)) $this.activity.invalidateOptionsMenu();
+		};
+
+<span id='UIFactory-Window-method-setActivityButton'>		/**
+</span>		 * @method setActivityButton
+		 * **Android specific**
+		 * @param {Object} opt
+		 */
+		$this.setActivityButton = function(opt) {
+			activityButtons = [];
+			$this.addActivityButton(opt);
+		};
+
+<span id='UIFactory-Window-method-setRightNavButton'> 		/**
+</span> 		 * @method setRightNavButton
+ 		 * @inheritDoc #setActivityButton
+ 		 * Alias for {@link #setActivityButton}
+ 		 */
+		$this.setRightNavButton = $this.setActivityButton;
+
+
+<span id='UIFactory-Window-method-processTitles'>		/**
+</span>		 * @method processTitles
+		 * Auto-process the titles
+		 */
+		$this.processTitles = function () {
+			$this.setActionBarProperties({
+				title: ($this.title &amp;&amp; $this.subtitle) ? $this.title : ($this.subtitle === false ? $this.title : Ti.App.name),
+				subtitle: ($this.title &amp;&amp; $this.subtitle) ? $this.subtitle : ($this.subtitle === false ? null : $this.title)
+			});
+		};
+
+<span id='UIFactory-Window-method-setTitle'>		/**
+</span>		 * @method setTitle
+		 * **Android fix**
+		 * @param {String} value
+		 */
+		$this.setTitle = function(value) {
+			$this.title = value;
+			$this.processTitles();
+		};
+
+<span id='UIFactory-Window-method-setSubtitle'>		/**
+</span>		 * @method setSubtitle
+		 * **Android fix**
+		 * @param {String} value
+		 */
+		$this.setSubtitle = function(value) {
+			$this.subtitle = value;
+			$this.processTitles();
+		};
+
+	}
+
+
+	//////////////////////
+	// Parse arguments //
+	//////////////////////
+
+	if (args.deferredBackgroundImage != null) $this.setDeferredBackgroundImage(args.deferredBackgroundImage);
+	if (args.backgroundCoverImage != null) $this.setBackgroundCoverImage(args.backgroundCoverImage);
+
+	if (OS_ANDROID) {
+
+		$this.processTitles();
+		if (_.isFunction($this.activity.invalidateOptionsMenu)) {
+			$this.activity.invalidateOptionsMenu();
+		}
+
+		if (args.displayHomeAsUp === true &amp;&amp; args.exitOnClose !== true) {
+			$this.setActionBarProperties({
+				displayHomeAsUp: true,
+				onHomeIconItemSelected: function() {
+					$this.close();
+				}
+			});
+		}
+
+		if (args.backButtonDisabled === true) {
+			$this.addEventListener(&#39;androidback&#39;, function() {
+				return false;
+			});
+		}
+
+		if (args.activityProperties != null) $this.setActivityProperties(args.activityProperties);
+		if (args.actionBarProperties != null) $this.setActionBarProperties(args.actionBarProperties);
+		if (args.rightNavButton != null) $this.setRightNavButton(args.rightNavButton);
+		if (args.activityButtons != null) _.each(args.activityButtons, function(val) { $this.addActivityButton(val); });
+		if (args.activityButton != null) $this.setActivityButton(args.activityButton);
+	}
+
+	return $this;
+};</pre>
+</body>
+</html>

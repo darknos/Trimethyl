@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='UIFactory-TextArea'>/**
+</span> * @class  	UIFactory.TextArea
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ *
+ * * Add support for `hintText`, that is missing on iOS.
+ * * Removed the annoying autofocus on Android
+ *
+ */
+
+module.exports = function(args) {
+	args = args || {};
+	var $this = Ti.UI.createTextArea(args);
+
+	function onTextAreaFocus() {
+		if (_.isEmpty($this.getRealValue())) {
+			$this.applyProperties({
+				value: &#39;&#39;,
+				color: $this.color || &#39;#000&#39;
+			});
+		}
+	}
+
+	function onTextAreaBlur() {
+		if (_.isEmpty($this.value)) {
+			$this.applyProperties({
+				value: $this.hintText,
+				color: $this.hintTextColor || &#39;#AAA&#39;
+			});
+		} else {
+			$this.color = $this.color || &#39;#000&#39;;
+		}
+	}
+
+	if (OS_IOS) {
+
+<span id='UIFactory-TextArea-method-getRealValue'>		/**
+</span>		 * @method getRealValue
+		 * Get the effective value when using hintText hack
+		 * @return {String}
+		 */
+		$this.getRealValue = function(){
+			if ($this.hintText === $this.value) return &#39;&#39;;
+			return $this.value;
+		};
+
+		$this.getHintText = function() {
+			return $this.hintText;
+		};
+
+		$this.setHintText = function(val) {
+			$this.hintText = val;
+		};
+
+	} else {
+
+		$this.getRealValue = function(){
+			return $this.value;
+		};
+
+	}
+
+
+	 //////////////////////
+ 	// Parse arguments //
+	 //////////////////////
+
+ 	if (OS_IOS &amp;&amp; args.hintText != null) {
+ 		$this.setHintText(args.hintText);
+ 		$this.addEventListener(&#39;focus&#39;, onTextAreaFocus);
+ 		$this.addEventListener(&#39;blur&#39;, onTextAreaBlur);
+ 		onTextAreaBlur();
+ 	}
+
+ 	// Remove autofocus
+
+	if (OS_ANDROID) {
+		$this.setSoftKeyboardOnFocus(Ti.UI.Android.SOFT_KEYBOARD_HIDE_ON_FOCUS);
+		$this.addEventListener(&#39;touchstart&#39;,  function() {
+			$this.setSoftKeyboardOnFocus(Ti.UI.Android.SOFT_KEYBOARD_SHOW_ON_FOCUS);
+		});
+	}
+
+	return $this;
+};</pre>
+</body>
+</html>

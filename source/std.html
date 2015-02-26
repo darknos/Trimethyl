@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Auth-Std'>/**
+</span> * @class  	Auth.Std
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+exports.login = function(opt) {
+	Ti.App.Properties.setObject(&#39;auth.std.data&#39;, opt.data);
+	opt.success(opt.data);
+};
+
+exports.logout = function() {
+	Ti.App.Properties.removeProperty(&#39;auth.std.data&#39;);
+};
+
+exports.isStoredLoginAvailable = function() {
+	return Ti.App.Properties.hasProperty(&#39;auth.std.data&#39;);
+};
+
+exports.storedLogin = function(opt) {
+	if (exports.isStoredLoginAvailable()) {
+		opt.success(Ti.App.Properties.getObject(&#39;auth.std.data&#39;));
+	} else {
+		opt.error();
+	}
+};</pre>
+</body>
+</html>

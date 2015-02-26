@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='UIFactory-NavigationWindow'>/**
+</span> * @class  	UIFactory.NavigationWindow
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ *
+ * Simple stack of `Ti.UI.iOS.NavigationWindow`
+ */
+
+function NavigationWindow(args) {
+	this.args = args || {};
+	this.windows = [];
+	this.window = args.window || null;
+}
+
+function __onWindowClose(nav, e) {
+	var window = e.source;
+	if (_.isNumber(window.navigationIndex)) {
+		nav.windows.splice(window.navigationWindow, 1);
+		nav.window = _.last(nav.windows);
+	}
+}
+
+NavigationWindow.prototype.open = function(opt) {
+	if (this.window == null) {
+		Ti.API.error(&#39;UIFactory.NavigationWindow: no window defined in NavigationWindow&#39;);
+		return false;
+	}
+
+	this.openWindow(this.window, opt);
+};
+
+NavigationWindow.prototype.close = function(callback) {
+	var self = this;
+
+	(function _close() {
+		if (self.windows.length === 0) {
+			if (_.isFunction(callback)) callback();
+			return;
+		}
+
+		var w = self.windows.pop();
+		w.removeEventListener(&#39;close&#39;, w.__onClose);
+		w.addEventListener(&#39;close&#39;, _close);
+		w.close({ animated: false });
+	})();
+};
+
+NavigationWindow.prototype.openWindow = function(window, opt) {
+	var self = this;
+	opt = opt || {};
+
+	window.navigationIndex = this.windows.length;
+	window.__onClose = function(e) { __onWindowClose(self, e); };
+	window.addEventListener(&#39;close&#39;, window.__onClose);
+
+	this.windows.push(window);
+	this.window = window;
+
+	opt.modal = false; // set anyway to false to prevent heavyweight windows
+	this.window.open(opt);
+};
+
+NavigationWindow.prototype.closeWindow = function(window) {
+	window.close();
+};
+
+NavigationWindow.prototype.getWindowsStack = function() {
+	return this.windows;
+};
+
+module.exports = NavigationWindow;</pre>
+</body>
+</html>

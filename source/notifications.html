@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Notifications'>/**
+</span> * @class  	Notifications
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+<span id='Notifications-property-config'>/**
+</span> * @property config
+ * @property {Boolean} 	[config.autoReset=true] 	Check if auto-reset the badge when app is open.
+ * @property {String} 	[config.driver=&quot;http&quot;] 		The driver to use.
+ * @property {Boolean} 	[config.useRouter=true]		When a notification with a `{url:&quot;&quot;}` parameter is received, auto-route using the Router class.
+ * @type {Object}
+ */
+exports.config = _.extend({
+	autoReset: true,
+	useRouter: true,
+	driver: &#39;cloud&#39;,
+}, Alloy.CFG.T ? Alloy.CFG.T.notifications : {});
+
+var Event = require(&#39;T/event&#39;);
+var Util = require(&#39;T/util&#39;);
+var Router = require(&#39;T/router&#39;);
+
+var wasInBackground = false;
+
+// Driver loader
+function load(name) {
+	return require(&#39;T/notifications/&#39;+name);
+}
+
+function onNotificationReceived(e) {
+	e = e || {};
+	Ti.API.debug(&quot;Notifications: Received&quot;, e);
+
+	if (OS_ANDROID) {
+		// When the app is in background, the type is !== &#39;callback&#39;
+		// So, we simply save the state wasInBackground and return because the notification.received event must NOT be triggered
+		if (e.type !== &#39;callback&#39;) {
+			wasInBackground = true;
+			return;
+		}
+
+		// Reformat in iOS style
+		if (e.payload != null) {
+			e.data = Util.parseJSON(e.payload);
+			_.extend(e.data, e.data.android);
+		}
+		e.inBackground = wasInBackground;
+	}
+
+	// Auto-reset the badge
+	if (exports.config.autoReset) {
+		exports.resetBadge();
+	}
+
+	// Router
+	if (exports.config.useRouter) {
+		if (e.inBackground) {
+			if (e.data.url != null) {
+				Router.go(e.data.url);
+			}
+		}
+	}
+
+	Event.trigger(&#39;notifications.received&#39;, e);
+}
+
+<span id='Notifications-method-event'>/**
+</span> * @method event
+ */
+exports.event = function(name, cb) {
+	Event.on(&#39;notifications.&#39;+name, cb);
+};
+
+var subscribeFunction = null;
+var unsubscribeFunction = null;
+
+if (OS_IOS) {
+
+	subscribeFunction = function(callback) {
+		if (Util.getIOSVersion() &gt;= 8) {
+
+			var tmpSubscribe = function() {
+				Ti.App.iOS.removeEventListener(&#39;usernotificationsettings&#39;, tmpSubscribe);
+				Ti.Network.registerForPushNotifications({
+					callback: onNotificationReceived,
+					success: function(e) {
+						Ti.API.debug(&#39;Notifications: Device token is &lt;&#39; + e.deviceToken + &#39;&gt;&#39;);
+						callback(e.deviceToken);
+					},
+					error: function(err) {
+						Ti.API.error(&#39;Notifications: Retrieve device token failed&#39;, err);
+						Event.trigger(&#39;notifications.subscription.error&#39;, err);
+					}
+				});
+			};
+
+			Ti.App.iOS.addEventListener(&#39;usernotificationsettings&#39;,  tmpSubscribe);
+			Ti.App.iOS.registerUserNotificationSettings({
+				types: [ Ti.App.iOS.USER_NOTIFICATION_TYPE_ALERT, Ti.App.iOS.USER_NOTIFICATION_TYPE_SOUND, Ti.App.iOS.USER_NOTIFICATION_TYPE_BADGE ]
+			});
+
+		} else {
+
+			Ti.Network.registerForPushNotifications({
+				callback: onNotificationReceived,
+				types: [ Ti.Network.NOTIFICATION_TYPE_BADGE, Ti.Network.NOTIFICATION_TYPE_ALERT, Ti.Network.NOTIFICATION_TYPE_SOUND ],
+				success: function(e) {
+					Ti.API.debug(&#39;Notifications: Device token is &lt;&#39; + e.deviceToken + &#39;&gt;&#39;);
+					callback(e.deviceToken);
+				},
+				error: function(err) {
+					Ti.API.error(&#39;Notifications: Retrieve device token failed&#39;, err);
+					Event.trigger(&#39;notifications.subscription.error&#39;, err);
+				},
+			});
+		}
+	};
+
+	unsubscribeFunction = function(){
+		Ti.Network.unregisterForPushNotifications();
+	};
+
+} else if (OS_ANDROID) {
+
+	var CloudPush = require(&#39;ti.cloudpush&#39;);
+	CloudPush.debug = !ENV_PRODUCTION;
+	CloudPush.showAppOnTrayClick = true;
+	CloudPush.showTrayNotification = true;
+	CloudPush.showTrayNotificationsWhenFocused = false;
+
+	subscribeFunction = function(callback) {
+		// add a series of callback on the same functions, and set values inset
+		CloudPush.addEventListener(&#39;callback&#39;, onNotificationReceived);
+		CloudPush.addEventListener(&#39;trayClickLaunchedApp&#39;, onNotificationReceived);
+		CloudPush.addEventListener(&#39;trayClickFocusedApp&#39;, onNotificationReceived);
+
+		CloudPush.retrieveDeviceToken({
+			success: function(e) {
+				Ti.API.debug(&#39;Notifications: Device token is &lt;&#39; + e.deviceToken + &#39;&gt;&#39;);
+				callback(e.deviceToken);
+			},
+			error: function(e) {
+				Ti.API.error(&#39;Notifications: Retrieve device token failed&#39;, e);
+				Event.trigger(&#39;notifications.subscription.error&#39;, e);
+			}
+		});
+	};
+
+	unsubscribeFunction = function(){
+		CloudPush.removeEventListener(&#39;callback&#39;, onNotificationReceived);
+		CloudPush.removeEventListener(&#39;trayClickLaunchedApp&#39;, onNotificationReceived);
+		CloudPush.removeEventListener(&#39;trayClickFocusedApp&#39;, onNotificationReceived);
+	};
+
+}
+
+
+<span id='Notifications-method-subscribe'>/**
+</span> * @method subscribe
+ * Subscribe for that channel
+ * @param {String} channel 	Channel name
+ * @param {Object} data 		Additional data
+ */
+exports.subscribe = function(channel, data) {
+	subscribeFunction(function(deviceToken) {
+		Ti.App.Properties.setString(&#39;notifications.token&#39;, deviceToken);
+
+		load(exports.config.driver).subscribe({
+			deviceToken: deviceToken,
+			channel: channel,
+			data: data,
+			success: function(response) {
+				Event.trigger(&#39;notifications.subscription.success&#39;, { channel: channel });
+				Ti.API.debug(&#39;Notifications: Subscription to channel &lt;&#39; + channel + &#39;&gt; succeded&#39;, response);
+			},
+			error: function(err) {
+				Event.trigger(&#39;notifications.subscription.error&#39;, err);
+				Ti.API.error(&#39;Notifications: Subscription failed to channel &lt;&#39; + channel + &#39;&gt;&#39;, err);
+			}
+		});
+	});
+};
+
+
+<span id='Notifications-method-unsubscribe'>/**
+</span> * @method unsubscribe
+ * Unsubscribe for that channel
+ * @param {String} channel 	Channel name
+ * @param {Object} data 		Additional data
+ */
+exports.unsubscribe = function(channel, data) {
+	var deviceToken = Ti.App.Properties.getString(&#39;notifications.token&#39;);
+	if (_.isEmpty(deviceToken)) {
+		Ti.API.error(&#39;Notifications: Error while getting deviceToken&#39;);
+		return;
+	}
+
+	Ti.App.Properties.removeProperty(&#39;notifications.token&#39;);
+	load(exports.config.driver).unsubscribe({
+		deviceToken: deviceToken,
+		channel: channel,
+		data: data,
+		success: function(response) {
+			Event.trigger(&#39;notifications.unsubscription.error&#39;, { channel: channel });
+			Ti.API.debug(&#39;Notifications: Unsubscription to channel &lt;&#39; + channel + &#39;&gt; succeded&#39;, response);
+		},
+		error: function(err) {
+			Event.trigger(&#39;notifications.unsubscription.error&#39;, err);
+			Ti.API.error(&#39;Notifications: Unsubscription failed to channel &lt;&#39; + channel + &#39;&gt;&#39;, err);
+		}
+	});
+};
+
+
+<span id='Notifications-method-setBadge'>/**
+</span> * @method setBadge
+ * Set the App badge value
+ * @param {Number} x
+ */
+exports.setBadge = function(x) {
+	if (OS_IOS) {
+		Ti.UI.iPhone.setAppBadge(Math.max(x,0));
+	} else if (OS_ANDROID) {
+		// TODO
+	}
+};
+
+<span id='Notifications-method-getBadge'>/**
+</span> * @method getBadge
+ * Get the App badge value
+ * @return {Number}
+ */
+exports.getBadge = function() {
+	if (OS_IOS) {
+		return Ti.UI.iPhone.getAppBadge();
+	} else if (OS_ANDROID) {
+		// TODO
+	}
+};
+
+<span id='Notifications-method-resetBadge'>/**
+</span> * @method resetBadge
+ * Reset to 0 the badge
+ */
+exports.resetBadge = function() {
+	exports.setBadge(0);
+};
+
+<span id='Notifications-method-incBadge'>/**
+</span> * @method incBadge
+ * Increment the badge app
+ * @param  {Number} i The value to increment
+ */
+exports.incBadge = function(i) {
+	exports.setBadge(exports.getBadge() + i);
+};
+
+
+/*
+Init
+*/
+
+if (exports.config.autoReset) {
+	exports.resetBadge();
+	Ti.App.addEventListener(&#39;resumed&#39;, exports.resetBadge);
+}
+</pre>
+</body>
+</html>

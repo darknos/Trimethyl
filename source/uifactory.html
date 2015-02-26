@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='UIFactory'>/**
+</span> * @class  	UIFactory
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+
+<span id='UIFactory-method-createNavigationWindow'>/**
+</span> * @method  createNavigationWindow
+ */
+exports.createNavigationWindow = function(args) {
+	args = args || {};
+	if (OS_IOS &amp;&amp; args._useFallback != true) {
+		return Ti.UI.iOS.createNavigationWindow(args);
+	} else {
+		var NavigationWindow = require(&#39;T/uifactory/navigationwindow&#39;);
+		return new NavigationWindow(args);
+	}
+};
+
+<span id='UIFactory-method-createWindow'>/**
+</span> * @method createWindow
+ */
+exports.createWindow = require(&#39;T/uifactory/window&#39;);
+
+<span id='UIFactory-method-createTextField'>/**
+</span> * @method createTextField
+ */
+exports.createTextField = require(&#39;T/uifactory/textfield&#39;);
+
+<span id='UIFactory-method-createTextArea'>/**
+</span> * @method createTextArea
+ */
+exports.createTextArea = require(&#39;T/uifactory/textarea&#39;);
+
+<span id='UIFactory-method-createLabel'>/**
+</span> * @method createLabel
+ */
+exports.createLabel = require(&#39;T/uifactory/label&#39;);
+
+<span id='UIFactory-method-createListView'>/**
+</span> * @method createListView
+ */
+exports.createListView = require(&#39;T/uifactory/listview&#39;);
+
+<span id='UIFactory-method-createTabbedBar'>/**
+</span> * @method createTabbedBar
+ */
+exports.createTabbedBar = function(args) {
+	args = args || {};
+	if (OS_IOS &amp;&amp; args._useFallback != true) {
+		return Ti.UI.iOS.createTabbedBar(args);
+	} else {
+		return require(&#39;T/uifactory/tabbedbar&#39;)(args);
+	}
+};
+
+<span id='UIFactory-method-createYoutubeVideoWebView'>/**
+</span> * @method createYoutubeVideoWebView
+ */
+exports.createYoutubeVideoWebView = require(&#39;T/uifactory/youtubevideowebview&#39;);
+
+<span id='UIFactory-method-createSelect'>/**
+</span> * @method createSelect
+ */
+exports.createSelect = require(&#39;T/uifactory/select&#39;);
+
+<span id='UIFactory-method-createView'>/**
+</span> * @method createView
+ */
+exports.createView = require(&#39;T/uifactory/view&#39;);
+
+<span id='UIFactory-method-createButton'>/**
+</span> * @method createButton
+ */
+exports.createButton = require(&#39;T/uifactory/button&#39;);
+</pre>
+</body>
+</html>

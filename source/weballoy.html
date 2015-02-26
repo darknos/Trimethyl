@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='WebAlloy'>/**
+</span> * @class  	WebAlloy
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+<span id='WebAlloy-property-config'>/**
+</span> * @property config
+ * @property {String} [config.jsExt=&quot;.jslocal&quot;] The extension to use for Javascript files
+ */
+exports.config = _.extend({
+	jsExt: &#39;.jslocal&#39;
+}, Alloy.CFG.T ? Alloy.CFG.T.weballoy : {});
+
+var libDir = [];
+var helpers = {};
+
+function embedFile(f) {
+	var file = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, f);
+	if ( ! file.exists()) {
+		Ti.API.debug(&#39;Weballoy: File not found (&#39; + f + &#39;)&#39;);
+		return null;
+	}
+
+	return file;
+}
+
+function getFileText(f) {
+	var file = embedFile(f);
+	if (file == null) return &#39;&#39;;
+	return file.read().text;
+}
+
+function embedCSS(f) {
+	var file = embedFile(f);
+	if (file == null) return &#39;&#39;;
+	return &#39;&lt;link rel=&quot;stylesheet&quot; href=&quot;&#39; + file.nativePath + (ENV_DEVELOPMENT ? &#39;?v=&#39;+Math.random() : &#39;&#39;) + &#39;&quot; /&gt;&#39;;
+}
+
+function embedJS(f) {
+	var file = embedFile(f);
+	if (file == null) return &#39;&#39;;
+	return &#39;&lt;script src=&quot;&#39; + file.nativePath + (ENV_DEVELOPMENT ? &#39;?v=&#39;+Math.random() : &#39;&#39;) + &#39;&quot;&gt;&lt;/script&gt;&#39;;
+}
+
+function getHTML(opt) {
+	var tpl_data = _.extend({}, helpers, opt.webdata);
+
+	// Include head (styles)
+	var html = &#39;&lt;!DOCTYPE html&gt;&lt;html&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&#39;;
+	html += &#39;&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width; initial-scale=1; minimum-scale=1; maximum-scale=1; user-scalable=no;&quot; /&gt;&#39;;
+	html += &#39;&lt;style&gt;body{-webkit-text-size-adjust:none;}&lt;/style&gt;&#39;; //iOS auto expand font BUG
+
+	// Install the global event handler for this specific WebView
+	html += &#39;&lt;script&gt;window.WebAlloy={run:function(name,data){Ti.App.fireEvent(&quot;__weballoy_&#39;+opt.uniqid+&#39;&quot;,{name:name,data:data});}};&lt;/script&gt;&#39;;
+
+	// Include global css
+	html += embedCSS(&#39;web/app.css&#39;);
+	if (opt.name) {
+		html += embedCSS(&#39;web/styles/&#39; + opt.name + &#39;.css&#39;);
+	}
+
+	html += &#39;&lt;/head&gt;&lt;body&gt;&#39;;
+
+	html += _.template(getFileText(&#39;web/app.tpl&#39;))(tpl_data);
+
+	// Include template
+	html += &#39;&lt;div id=&quot;main&quot; class=&quot;&#39; + (opt.htmlClass || &#39;&#39;) + &#39;&quot;&gt;&#39;;
+
+	if (opt.content) {
+		html += _.template(opt.content)(tpl_data);
+	} else if (opt.name) {
+		html += _.template(getFileText(&#39;web/views/&#39; + opt.name + &#39;.tpl&#39;))(tpl_data);
+	}
+
+	html += &#39;&lt;/div&gt;&#39;;
+
+	// Include libs
+	_.each(libDir, function(js) {
+		html += embedJS(js);
+	});
+
+	// Include footer
+	html += embedJS(&#39;web/app&#39; + exports.config.jsExt);
+	if (opt.name) {
+		html += embedJS(&#39;web/controllers/&#39; + opt.name + exports.config.jsExt);
+	}
+
+	html += &#39;&lt;/body&gt;&lt;/html&gt;&#39;;
+
+	tpl = null;
+	return html;
+}
+
+<span id='WebAlloy-method-addHelper'>/**
+</span> * Add an helper for the WebView
+ * @param {String} 		name   The name of the helper
+ * @param {Function} 	method The callback
+ */
+exports.addHelper = function(name, method) {
+	helpers[name] = method;
+};
+
+<span id='WebAlloy-method-createView'>/**
+</span> * @method createView
+ * @param  {Object} args Arguments for the view.
+ * @return {Ti.UI.WebView}
+ */
+exports.createView = function(args) {
+	args = args || {};
+	args.uniqid = _.uniqueId();
+
+	var $ui = Ti.UI.createWebView(_.extend({
+		disableBounce: true,
+		enableZoomControls: false,
+		hideLoadIndicator: true,
+		scalesPageToFit: false,
+		backgroundColor: &#39;transparent&#39;,
+		html: getHTML(args)
+	}, args));
+
+	$ui.addEventListener(&#39;load&#39;, function() {
+		if (args.autoHeight) {
+			$ui.height = Math.floor( $ui.evalJS(&#39;document.documentElement.offsetHeight&#39;) );
+		}
+		if (_.isFunction(args.onLoad)) {
+			args.onLoad.call($ui);
+		}
+	});
+
+	$ui._ = function(js) {
+		return $ui.evalJS(js);
+	};
+
+	$ui.call = function() {
+		var args = _.map(Array.prototype.slice.call(arguments, 1), function(a) { return JSON.stringify(a); });
+		return $ui._( arguments[0] + &#39;(&#39; + args.join(&#39;,&#39;) + &#39;)&#39; );
+	};
+
+	$ui.$ = function(selector) {
+		return {
+			call: function() {
+				var args = _.map(Array.prototype.slice.call(arguments, 1), function(a) { return JSON.stringify(a); });
+				return $ui._( &#39;document.querySelector(&quot;&#39; + selector + &#39;&quot;).&#39; + arguments[0] + &#39;(&#39; + args.join(&#39;,&#39;) + &#39;)&#39; );
+			},
+			get: function(name) {
+				return $ui._( &#39;document.querySelector(&quot;&#39; + selector + &#39;&quot;).&#39; + name );
+			},
+			set: function(name, value) {
+				return $ui._( &#39;document.querySelector(&quot;&#39; + selector + &#39;&quot;).&#39; + name + &#39; = &#39; + JSON.stringify(value) );
+			}
+		};
+	};
+
+	$ui.render = function(data) {
+		$ui.$(&#39;#main&#39;).set(&#39;innerHTML&#39;, $ui.tpl(_.extend({}, helpers, data)));
+	};
+
+	// Install the API listener
+	if (args.webapi != null) {
+
+		var webapiListener = function(event) {
+			if (!_.isFunction(args.webapi[event.name])) return;
+			args.webapi[event.name].call($ui, event.data);
+		};
+
+		Ti.App.addEventListener(&#39;__weballoy_&#39; + args.uniqid, webapiListener);
+		$ui.webapiUnbind = function() {
+			Ti.App.removeEventListener(&#39;__weballoy_&#39; + args.uniqid, webapiListener);
+		};
+	}
+
+	return $ui;
+};
+
+
+/*
+Init
+*/
+
+var jsFiles = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, &#39;web/lib&#39;).getDirectoryListing();
+_.each(jsFiles, function(js) {
+	libDir.push(&#39;web/lib/&#39;+js);
+});
+</pre>
+</body>
+</html>

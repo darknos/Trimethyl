@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Auth'>/**
+</span> * @class  	Auth
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+<span id='Auth-property-config'>/**
+</span> * @property config
+ * @property {String} [config.loginUrl=&quot;/login&quot;] 	URL to login-in
+ */
+exports.config = _.extend({
+	loginUrl: &#39;/login&#39;,
+}, Alloy.CFG.T ? Alloy.CFG.T.auth : {});
+
+var Q = require(&#39;T/ext/q&#39;);
+var HTTP = require(&#39;T/http&#39;);
+var Event = require(&#39;T/event&#39;);
+
+var Me = null; // User model object
+
+function load(name) {
+	return require(&#39;T/auth/&#39;+name);
+}
+
+<span id='Auth-method-loadDriver'>/**
+</span> * @method loadDriver
+ */
+exports.loadDriver = load;
+
+<span id='Auth-method-event'>/**
+</span> * @method event
+ */
+exports.event = function(name, cb) {
+	Event.on(&#39;auth.&#39; + name, cb);
+};
+
+<span id='Auth-method-getUser'>/**
+</span> * @method getUser
+ * Get current User model
+ * @return {Object}
+ */
+exports.getUser = function(){
+	return Me;
+};
+
+<span id='Auth-method-isLoggedIn'>/**
+</span> * Check if the user is logged in
+ *
+ * @return {Boolean}
+ */
+exports.isLoggedIn = function() {
+	return Me !== null;
+};
+
+<span id='Auth-method-getUserID'>/**
+</span> * @method getUserID
+ * Get current User ID
+ * @return {Number}
+ */
+exports.getUserID = function(){
+	if (Me === null) return 0;
+	return Me.id;
+};
+
+function getStoredDriver(){
+	if (!Ti.App.Properties.hasProperty(&#39;auth.driver&#39;) || !Ti.App.Properties.hasProperty(&#39;auth.me&#39;)) {
+		return null;
+	}
+	return Ti.App.Properties.getString(&#39;auth.driver&#39;);
+}
+
+function driverLogin(opt) {
+	var q = Q.defer();
+
+	var method = opt.stored === true ? &#39;storedLogin&#39; : &#39;login&#39;;
+	load(opt.driver)[ method ]({
+		data: opt.data,
+		success: q.resolve,
+		error: q.reject
+	});
+
+	return q.promise;
+}
+
+function apiLogin(data) {
+	var q = Q.defer();
+
+	HTTP.send({
+		url: exports.config.loginUrl,
+		method: &#39;POST&#39;,
+		data: data,
+		errorAlert: false,
+		success: q.resolve,
+		error: q.reject,
+	});
+
+	return q.promise;
+}
+
+function fetchUserModel(info) {
+	var q = Q.defer();
+
+	Me = Alloy.createModel(&#39;user&#39;, {
+		id: info.id || &#39;me&#39;
+	});
+
+	Me.fetch({
+		http: {
+			refresh: true,
+			cache: false,
+			errorAlert: false
+		},
+		success: q.resolve,
+		error: q.reject
+	});
+
+	return q.promise;
+}
+
+<span id='Auth-method-login'>/**
+</span> * @method login
+ * Login using selected driver
+ * @param  {Object} opt
+ */
+exports.login = function(opt) {
+	if (_.isEmpty(opt.driver)) {
+		throw new Error(&#39;Please set a driver&#39;);
+	}
+
+	driverLogin(opt)
+
+	.then(function(dataFromDriver) {
+		return apiLogin(_.extend(dataFromDriver, {
+			method: opt.driver
+		}));
+	})
+
+	.then(fetchUserModel)
+
+	.then(function(){
+		Ti.App.Properties.setObject(&#39;auth.me&#39;, Me.toJSON());
+		Ti.App.Properties.setString(&#39;auth.driver&#39;, opt.driver);
+	})
+
+	.then(function(){
+		Event.trigger(&#39;auth.success&#39;, { id: Me.id });
+		if (_.isFunction(opt.success)) {
+			opt.success({
+				id: Me.id
+			});
+		}
+	})
+
+	.fail(function(e) {
+		Event.trigger(&#39;auth.error&#39;, e);
+		if (_.isFunction(opt.error)) opt.error(e);
+	});
+};
+
+<span id='Auth-method-isStoredLoginAvailable'>/**
+</span> * @method isStoredLoginAvailable
+ * Check if the Stored Login feature is available
+ * @return {Boolean}
+ */
+exports.isStoredLoginAvailable = function() {
+	var driver = getStoredDriver();
+	return !_.isEmpty(driver) &amp;&amp; load(driver).isStoredLoginAvailable();
+};
+
+<span id='Auth-method-storedLogin'>/**
+</span> * @method storedLogin
+ * Login using stored driver
+ * @param  {Object} opt
+ */
+exports.storedLogin = function(opt) {
+	if (Ti.Network.online) {
+
+		exports.login(_.extend(opt || {}, {
+			stored: true,
+			driver: getStoredDriver()
+		}));
+
+	} else {
+
+		if (Ti.App.Properties.hasProperty(&#39;auth.me&#39;)) {
+
+			Me = Alloy.createModel(&#39;user&#39;, Ti.App.Properties.getObject(&#39;auth.me&#39;));
+
+			Event.trigger(&#39;auth.success&#39;, { id: Me.id });
+			if (_.isFunction(opt.success)) {
+				opt.success({
+					id: Me.id
+				});
+			}
+
+		} else {
+			Event.trigger(&#39;auth.error&#39;, {});
+			if (_.isFunction(opt.error)) opt.error({});
+		}
+	}
+};
+
+<span id='Auth-method-logout'>/**
+</span> * @method logout
+ * @param  {Function} callback
+ */
+exports.logout = function(callback) {
+	Event.trigger(&#39;auth.logout&#39;, {
+		id: exports.getUserID()
+	});
+
+	var driver = getStoredDriver();
+	if (driver != null) {
+		load(driver).logout();
+	}
+
+	Me = null;
+
+	Ti.App.Properties.removeProperty(&#39;auth.me&#39;);
+	Ti.App.Properties.removeProperty(&#39;auth.driver&#39;);
+
+	T(&#39;cache&#39;).purge();
+	HTTP.resetCookies();
+
+	if (_.isFunction(callback)) callback();
+};
+</pre>
+</body>
+</html>

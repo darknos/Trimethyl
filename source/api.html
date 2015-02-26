@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js">/*
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+var HTTP = require(&#39;T/http&#39;);
+var CRUD_to_REST = {
+	&#39;create&#39;: &#39;POST&#39;,
+	&#39;read&#39;: &#39;GET&#39;,
+	&#39;update&#39;: &#39;PUT&#39;,
+	&#39;delete&#39;: &#39;DELETE&#39;,
+	&#39;patch&#39;: &#39;PATCH&#39;
+};
+
+exports.sync = function(method, model, opt) {
+	var url = (model.config.adapter.baseUrl || &#39;/&#39;) + model.config.adapter.name;
+
+	if ((model instanceof Backbone.Model) &amp;&amp; model.id != null) {
+		url += &#39;/&#39; + model.id;
+	}
+
+	if (model.query != null) {
+		if (_.isObject(model.query) || _.isArray(model.query)) {
+			url += require(&#39;T/util&#39;).buildQuery(model.query);
+		} else if (_.isString(model.query)) {
+			url += model.query.substr(0,1) === &#39;?&#39; ? model.query : (&#39;?&#39;+model.query);
+		}
+	}
+
+	if (opt.patch) method = &#39;patch&#39;;
+
+	var httpOpt = _.extend({}, model.config.http, opt.http, {
+		url: url,
+		method: CRUD_to_REST[method] || &#39;GET&#39;,
+		format: &#39;json&#39;
+	});
+
+	if (Alloy.Backbone.emulateHTTP) {
+		if ([ &#39;DELETE&#39;, &#39;PUT&#39;, &#39;PATCH&#39; ].indexOf(httpOpt.method) !== -1) {
+			httpOpt.method = &#39;POST&#39;;
+			httpOpt.headers = _.extend({}, httpOpt.headers, {
+				&#39;X-HTTP-Method-Override&#39;: httpOpt.method
+			});
+		}
+	}
+
+	switch (method) {
+
+		case &#39;create&#39;:
+
+		_.extend(httpOpt, { data: JSON.stringify(model.toJSON()) });
+		HTTP.send(httpOpt).success(function(resp) {
+
+			if (resp != null &amp;&amp; resp.id != null) {
+				opt.success(resp);
+			} else {
+				opt.error();
+			}
+
+		}).error(opt.error);
+		break;
+
+		case &#39;read&#39;:
+
+		HTTP.send(httpOpt).success(function(resp) {
+
+			if (resp != null) {
+				if (model instanceof Backbone.Collection) {
+
+					if (_.isObject(resp)){
+						opt.success(resp.data || resp.results || resp.result);
+					} else if (_.isArray(resp)) {
+						opt.success(resp);
+					} else {
+						opt.error();
+					}
+
+				} else {
+					opt.success(resp);
+				}
+			} else {
+				opt.error();
+			}
+
+		}).error(opt.error);
+		break;
+
+		case &#39;update&#39;:
+
+		if (opt.patch) {
+			_.extend(httpOpt, { data: JSON.stringify(_.pick(model.attributes, _.keys(opt.changes))) });
+		} else {
+			_.extend(httpOpt, { data: JSON.stringfiy(model.toJSON()) });
+		}
+
+		HTTP.send(httpOpt).success(function(resp) {
+
+			if (resp != null) {
+				opt.success();
+			} else {
+				opt.error();
+			}
+
+		}).error(opt.error);
+		break;
+
+		case &#39;delete&#39;:
+
+		HTTP.send(httpOpt).success(function(resp) {
+
+			if (resp != null) {
+				opt.success();
+			} else {
+				opt.error();
+			}
+
+		}).error(opt.error);
+		break;
+
+	}
+};</pre>
+</body>
+</html>

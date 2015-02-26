@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='UIUtil'>/**
+</span> * @class  	UIUtil
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+<span id='UIUtil-method-populateListViewFromCollection'>/**
+</span> * @method populateListViewFromCollection
+ * Parse an array or a Backbone.Collection and populate a ListView with this values.
+ *
+ * @param {Object} 	C   					Array or Backbone.Collection
+ * @param {Object} 	opt 					Options
+ * @param {Function} opt.datasetCb		You must provide a callback to fill the ListItem, like this:
+ *
+ * ```
+ * return {
+ *	   properties: {
+ *	      height: 52,
+ *			itemId: el.id,
+ *			searchableText: el.get(&#39;city&#39;)
+ *		},
+ *		title: { text: el.get(&#39;title&#39;) },
+ *		address: { text: el.get(&#39;address&#39;)+&#39;, &#39;+el.get(&#39;city&#39;) }
+ *	}
+ * ```
+ *
+ * @param {Object}	opt.groupBy 		See `_.groupBy`
+ * @param {Function} opt.headerViewCb	A callback to generate the headerView for the ListView.
+ * @param {Boolean}	opt.sectionIndex 	If `true`, provide the **alphabet on the right** functionality.
+ * @param {Ti.UI.ListView} 	[$ui] The ListView to populate.
+ * @return {Array}
+ */
+exports.populateListViewFromCollection = function(C, opt, $ui) {
+	var sec = [];
+
+	if (opt.groupBy != null) {
+
+		var array = (C instanceof Backbone.Collection) ? C.groupBy(opt.groupBy) : _.groupBy(C, opt.groupBy);
+		sec = _.map(array, function(els, key) {
+			return Ti.UI.createListSection(_.extend({
+				items: _.map(els, opt.datasetCb),
+			}, _.isFunction(opt.headerViewCb) ? { headerView: opt.headerViewCb(key) } : { headerTitle: key }));
+		});
+
+		if ($ui != null &amp;&amp; opt.sectionIndex) {
+			$ui.sectionIndexTitles = _.map(_.keys(array), function(u, k) {
+				return {
+					title: u,
+					index: k
+				};
+			});
+		}
+
+	} else {
+		sec = [ Ti.UI.createListSection({
+			items: (C instanceof Backbone.Collection) ? C.map(opt.datasetCb) : _.map(C, opt.datasetCb)
+		}) ];
+	}
+
+	if ($ui != null) $ui.sections = sec;
+	return sec;
+};
+
+
+
+<span id='UIUtil-method-setBackgroundCoverForView'>/**
+</span>* @method setBackgroundCoverForView
+* Set the background image with cover method
+* @param {String} url
+*/
+exports.setBackgroundCoverForView = function($this, url) {
+	if ($this.size == null || $this.size.width == 0 || $this.size.height == 0) {
+
+		$this.addEventListener(&#39;postlayout&#39;, function postlayout() {
+			$this.removeEventListener(&#39;postlayout&#39;, postlayout);
+			if ($this.size != null &amp;&amp; $this.size.width != 0 &amp;&amp; $this.size.height != 0) {
+				exports.setBackgroundCoverForView($this, url);
+			}
+		});
+
+		return;
+	}
+
+	var w = $this.size.width, h = $this.size.height;
+	var hashedCachedName = Ti.Utils.md5HexDigest(url) + &#39;_&#39; + (w+&#39;x&#39;+h) + &#39;.png&#39;;
+	var cachedFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationCacheDirectory, hashedCachedName);
+
+	var onBlobReady = function(blob) {
+		Ti.Filesystem.getFile(Ti.Filesystem.applicationCacheDirectory).createDirectory();
+
+		var cachedFileStatus = require(&#39;T/image&#39;).process({
+			blob: blob,
+			width: w,
+			height: h,
+			retina: true,
+			file: cachedFile
+		});
+
+		if (cachedFileStatus != false) {
+			$this.backgroundImage = cachedFileStatus.nativePath;
+		} else {
+			Ti.API.error(&#39;UIFactory.View: Can\&#39;t write cover file for url &lt;&#39; + url + &#39;&gt;&#39;);
+		}
+	};
+
+	if (cachedFile.exists()) {
+		$this.backgroundImage = cachedFile.nativePath;
+
+	} else {
+
+		if (/^https?\:\/\//.test(url)) {
+			require(&#39;T/http&#39;).send({
+				url: url,
+				format: &#39;blob&#39;,
+				cache: false,
+				refresh: true,
+				errorAlert: false,
+				silent: true
+			}).success(function(data) {
+				onBlobReady(data);
+			}).error(function() {
+				Ti.API.error(&#39;UIFactory.View: URL &lt;&#39; + url + &#39;&gt; can\&#39;t be downloaded&#39;);
+			});
+
+		} else {
+			var origFile = Ti.Filesystem.getFile(Ti.Filesystem.resourcesDirectory, url);
+			if (origFile.exists()) {
+				onBlobReady(origFile.read());
+			} else {
+				Ti.API.error(&#39;UIFactory.View: File &lt;&#39; + url + &#39;&gt; doesn\&#39;t exists&#39;);
+			}
+		}
+	}
+
+};
+</pre>
+</body>
+</html>

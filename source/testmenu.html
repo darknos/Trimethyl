@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='TestMenu'>/**
+</span> * @class  	TestMenu
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+<span id='TestMenu-property-config'>/**
+</span> * * `showOnShake`: Show the menu on shake. Default: `true`
+ * * `hockeyApp`: Load HockeyApp SDK. Default: `true`
+ * @type {Object}
+ */
+exports.config = _.extend({
+	showOnShake: true,
+	hockeyApp: true
+}, Alloy.CFG.T ? Alloy.CFG.T.testmenu : {});
+
+if (exports.config.hockeyApp == true &amp;&amp; Ti.App.Properties.hasProperty(&#39;hockeyapp.id&#39;)) {
+	var HA = require(&#39;nl.rebelic.hockeyapp&#39;);
+	HA.start( Ti.App.Properties.getString(&#39;hockeyapp.id&#39;) );
+}
+
+<span id='TestMenu-method-show'>/**
+</span> * @method show
+ * Show the menu
+ */
+exports.show = function() {
+	var opts = [];
+	opts.push({
+		title: &#39;Send screenshot via email&#39;,
+		callback: function() {
+			d.hide();
+			Ti.Media.takeScreenshot(function(e) {
+				var emailDialog = Ti.UI.createEmailDialog({
+					subject: &#39;[&#39; + Ti.App.name + &#39;] Feedback&#39;,
+					toRecipients: [ Ti.App.Properties.getString(&#39;support.email&#39;) ]
+				});
+				var reportInfo = JSON.stringify({
+					device: T(&#39;device&#39;).getInfo(),
+					app: _.pick(Ti.App, &#39;id&#39;, &#39;name&#39;, &#39;version&#39;, &#39;deployType&#39;, &#39;installId&#39;, &#39;sessionId&#39;)
+				});
+				var reportFile = Ti.Filesystem.getFile(T(&#39;util&#39;).getAppDataDirectory(), &#39;report.json&#39;);
+				if (reportFile.write(reportInfo)) emailDialog.addAttachment(reportFile);
+				emailDialog.addAttachment(e.media);
+				emailDialog.open();
+			});
+		}
+	});
+	if (HA != null) {
+		opts.push({
+			title: &#39;Send feedback via HA&#39;,
+			callback: function() {
+				HA.showFeedbackListView();
+			}
+		});
+	}
+	opts.push({
+		title: &#39;Ping API server&#39;,
+		callback: function() {
+			T(&#39;http&#39;).send({
+				url: &#39;&#39;,
+				errorAlert: false,
+				success: function() {
+					T(&#39;dialog&#39;).alert(&#39;Is up! :)&#39;, null);
+				},
+				error: function(err) {
+					T(&#39;dialog&#39;).alert(&#39;Is down :(&#39;, HTTP.config.base + &#39;\n\n&#39; + JSON.stringify(err));
+				},
+			});
+		}
+	});
+	opts.push({
+		title: &#39;Delete DB cache (~&#39; + T(&#39;util&#39;).bytesForHumans(T(&#39;cache&#39;).getSize()) + &#39;)&#39;,
+		callback: function() {
+			T(&#39;cache&#39;).purge();
+			d.hide();
+		}
+	});
+	opts.push({
+		title: &#39;Cancel&#39;,
+		cancel: true
+	});
+
+	var d = T(&#39;dialog&#39;).option(Ti.App.name+&#39; v&#39;+Ti.App.version+&#39;\n&#39;+Ti.App.id+&#39;\nTESTING MENU&#39;, opts);
+};
+
+if (exports.config.showOnShake == true) {
+	Ti.Gesture.addEventListener(&#39;shake&#39;, exports.show);
+}</pre>
+</body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='App'>/**
+</span> * @class  	App
+ * @author 	Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+<span id='App-property-config'>/**
+</span> * @property config
+ * @property {Boolean} 	[config.useRouter=true]		Auto-route using the Router class.
+ */
+exports.config = _.extend({
+	useRouter: true,
+}, Alloy.CFG.T ? Alloy.CFG.T.app : {});
+
+var Util = require(&#39;T/util&#39;);
+var Router = require(&#39;T/router&#39;);
+
+
+<span id='App-property-launchURL'>/**
+</span> * @property {String} launchURL
+ */
+exports.launchURL = Util.parseSchema();
+
+<span id='App-property-pauseURL'>/**
+</span> * @property {String} pauseURL
+ */
+exports.pauseURL = null;
+
+<span id='App-method-isFirstUse'>/**
+</span> * @method isFirstUse
+ * Check if the first open of the app.
+ *
+ * Call @{@link #setFirstUse} to set the first use of the app.
+ *
+ * @return {Boolean}
+ */
+exports.isFirstUse = function() {
+	return !Ti.App.Properties.hasProperty(&#39;app.firstuse&#39;);
+};
+
+<span id='App-method-setAppFirstUse'>/**
+</span> * @method setAppFirstUse
+ * Set the app first usage date.
+ *
+ * Use in conjunction with {@link #isFirstUse}
+ */
+exports.setFirstUse = function() {
+	Ti.App.Properties.setString(&#39;app.firstuse&#39;, Util.now());
+};
+
+/*
+Init
+*/
+
+Ti.App.addEventListener(&#39;pause&#39;, function(){
+	exports.pauseURL = exports.launchURL;
+	Ti.API.debug(&#39;App: Paused&#39;);
+});
+
+Ti.App.addEventListener(&#39;resumed&#39;, function() {
+	exports.launchURL = Util.parseSchema();
+	Ti.API.debug(&#39;App: Resumed with schema &lt;&#39; + exports.launchURL + &#39;&gt;&#39;);
+
+	if (exports.launchURL !== exports.pauseURL &amp;&amp; exports.config.useRouter) {
+		Router.go(exports.launchURL);
+	}
+});
+
+<span id='App-method-start'>/**
+</span> * @method start
+ */
+exports.start = function() {
+	Ti.API.info(&#39;App: Started with schema &lt;&#39; + exports.launchURL + &#39;&gt;&#39;);
+	if (exports.config.useRouter &amp;&amp; exports.launchURL != null) {
+		Router.go(exports.launchURL);
+	}
+};
+</pre>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Notifications-Cloud'>/**
+</span> * @class  	Notifications.Cloud
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+
+var Cloud = require(&#39;ti.cloud&#39;);
+Cloud.debug = !ENV_PRODUCTION;
+
+exports.subscribe = function(opt) {
+	Cloud.PushNotifications.subscribeToken({
+		device_token: opt.deviceToken,
+		channel: opt.channel || &#39;none&#39;,
+		type: (function(){
+			if (OS_IOS) return &#39;ios&#39;;
+			if (OS_ANDROID) return &#39;gcm&#39;;
+		})()
+	}, function (e) {
+		opt[ e.success === true ? &#39;success&#39; : &#39;error&#39; ](e);
+	});
+};
+
+exports.unsubscribe = function(opt) {
+	Cloud.PushNotifications.unsubscribeToken({
+		device_token: opt.deviceToken,
+		channel: opt.channel || &#39;none&#39;
+	}, function(e){
+		opt[ e.success === true ? &#39;success&#39; : &#39;error&#39; ](e);
+	});
+};
+</pre>
+</body>
+</html>

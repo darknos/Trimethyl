@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='UIFactory-TabbedBar'>/**
+</span> * @class  	UIFactory.TabbedBar
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ *
+ * Android Implementation of `Ti.UI.iOS.TabbedBar`
+ *
+ */
+
+module.exports = function(args) {
+	args = args || {};
+	_.defaults(args, {
+		height: 34,
+		tintColor: &#39;#000&#39;,
+		labelStyle: {},
+		borderColor: args.tintColor,
+		borderWidth: 1,
+		borderRadius: 10
+	});
+
+	var $this = Ti.UI.createView(args);
+
+	var labels = [];
+	var labelIndex = 0;
+	var UIWrapLabels = null;
+
+	$this.getLabels = function() {
+		return labels;
+	};
+
+	$this.setLabels = function(lbls) {
+		labels = [];
+		_.each(lbls, function(l){
+			labels.push(_.isObject(l) ? l.title : l);
+		});
+
+		var width = Math.floor(100 / labels.length) + &#39;%&#39;;
+		var $wrap = Ti.UI.createView({
+			layout: &#39;horizontal&#39;,
+		});
+
+		_.each(labels, function(l, i) {
+
+			var lblArgs = _.extend({
+				color: $this.color || $this.tintColor,
+				font: $this.font,
+			}, $this.labelStyle, {
+				title: l,
+				index: i,
+				width: width,
+				height: Ti.UI.FILL,
+				left: 0,
+				right: 0
+			});
+
+			$wrap.add(Ti.UI.createButton(lblArgs));
+		});
+
+		if (UIWrapLabels !== null) $this.remove(UIWrapLabels);
+		$this.add($wrap);
+		UIWrapLabels = $wrap;
+	};
+
+	$this.getIndex = function() {
+		return labelIndex;
+	};
+
+	$this.setIndex = function(i) {
+		i = parseInt(i, 10);
+		if (!_.isNumber(i)) {
+			Ti.API.error(&#39;UIFactory.Tabbedbar: new index value is not a number&#39;);
+			return;
+		}
+
+		labelIndex = +i;
+		_.each(UIWrapLabels &amp;&amp; UIWrapLabels.children ? UIWrapLabels.children : [], function($c, i) {
+			if (+i === labelIndex) {
+				$c.applyProperties({
+					backgroundColor: $this.tintColor,
+					color: $this.activeColor || $this.backgroundColor || &#39;#fff&#39;,
+					active: false
+				});
+			} else {
+				$c.applyProperties({
+					backgroundColor: &#39;transparent&#39;,
+					color: $this.color || $this.tintColor,
+					active: true
+				});
+			}
+		});
+	};
+
+	//////////////////////
+	// Parse arguments //
+	//////////////////////
+
+	$this.addEventListener(&#39;click&#39;, function(e){
+		if (e.source.index == null) return;
+		$this.setIndex(+e.source.index);
+	});
+
+	if (args.labels != null) $this.setLabels(args.labels);
+	$this.setIndex(args.index || 0);
+
+	return $this;
+};</pre>
+</body>
+</html>

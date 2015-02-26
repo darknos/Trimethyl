@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Dialog'>/**
+</span> * @class  	Dialog
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+
+function parseDict(dict) {
+	return {
+		cancel: _.indexOf(dict, _.findWhere(dict, { cancel: true })),
+		selectedIndex: _.indexOf(dict, _.findWhere(dict, { selected: true })),
+		destructive: _.indexOf(dict, _.findWhere(dict, { destructive: true })),
+	};
+}
+
+function onClickDict(e, dict, dialog) {
+	if (OS_IOS &amp;&amp; e.index == e.source.cancel) return;
+	if (OS_ANDROID &amp;&amp; e.cancel === true) return;
+
+	if (_.isObject(dict[+e.index]) &amp;&amp; _.isFunction(dict[+e.index].callback)) {
+		dict[+e.index].callback.call(dialog, e);
+	}
+}
+
+<span id='Dialog-method-alert'>/**
+</span> * @method alert
+ * Create and show an Alert Dialog
+ *
+ * @param  {String}		title    		The title
+ * @param  {String}		message    		The message
+ * @param  {Function}	[callback] 		The callback to invokie when clicking **OK**
+ * @param  {Object}	 	[ext] 			Extends the `AlertDialog`
+ * @return {Ti.UI.AlertDialog}
+ */
+function dialogAlert(title, message, callback, ext) {
+	if (OS_ANDROID &amp;&amp; _.isEmpty(title)) {
+		title = Ti.App.name;
+	}
+
+	var dialog = Ti.UI.createAlertDialog(_.extend({
+		title: title,
+		message: message,
+		ok: &#39;OK&#39;
+	}, ext));
+
+	if (_.isFunction(callback)) {
+		dialog.addEventListener(&#39;click&#39;, callback);
+	}
+
+	dialog.show();
+	return dialog;
+}
+exports.alert = dialogAlert;
+
+
+<span id='Dialog-method-confirm'>/**
+</span> * @method confirm
+ * Create and show a confirm dialog
+ *
+ * @param  {String}		title       	The title
+ * @param  {String}		message        The message
+ * @param  {Object}		dict     		Buttons as Dictonary
+ * @param  {Object}		ext 				Extends the `AlertDialog`
+ * @return {Ti.UI.AlertDialog}
+ */
+function dialogConfirm(title, message, dict, ext) {
+	var dialog = Ti.UI.createAlertDialog(_.extend(parseDict(dict), {
+		buttonNames: _.pluck(dict, &#39;title&#39;),
+		title: title,
+		message: message
+	}, ext));
+
+	dialog.addEventListener(&#39;click&#39;, function(e) {
+		onClickDict(e, dict, dialog);
+	});
+
+	dialog.show();
+	return dialog;
+}
+exports.confirm = dialogConfirm;
+
+
+<span id='Dialog-method-option'>/**
+</span> * @method option
+ * Create and show an Option Dialog
+ *
+ * @param  {String}		title 			The title
+ * @param  {Object}    	dict 				Buttons as Dictonary
+ * @param  {Object}		[ext] 			Extends the `AlertDialog`
+ * @return {Ti.UI.AlertDialog}
+ */
+function dialogOption(title, dict, ext) {
+	var pdict = parseDict(dict);
+	if (OS_ANDROID &amp;&amp; pdict.cancel !== -1) {
+		// Android doesn&#39;t need a Cancel button, just hit &quot;Back&quot;
+		dict.splice(pdict.cancel, 1);
+	}
+
+	var dialog = Ti.UI.createOptionDialog(_.extend(pdict, {
+		options: _.pluck(dict, &#39;title&#39;),
+		title: title
+	}, ext));
+
+	dialog.addEventListener(&#39;click&#39;, function(e) {
+		onClickDict(e, dict, dialog);
+	});
+
+	dialog.show();
+	return dialog;
+}
+exports.option = dialogOption;
+
+
+<span id='Dialog-method-confirmYes'>/**
+</span> * @method confirmYes
+ * Create and show a confirm dialog with *Cancel* and *Yes* button.
+ *
+ * @param  {String}   	title 				The title
+ * @param  {String}   	message   			The message
+ * @param  {Function} 	[callback]    		The callback to invoke when clicking *Yes*.
+ * @param  {String}   	[buttonTitle]		Alternative title for *Yes*.
+ * @return {Ti.UI.AlertDialog}
+ */
+function confirmYes(title, message, callback, buttonTitle) {
+	return dialogConfirm(title, message, [
+		{
+			title: L(&#39;cancel&#39;, &#39;Cancel&#39;),
+			cancel: true
+		},
+		{
+			title: buttonTitle || L(&#39;yes&#39;, &#39;Yes&#39;),
+			callback: callback,
+			selected: true
+		}
+	]);
+}
+exports.confirmYes = confirmYes;
+
+
+<span id='Dialog-method-prompt'>/**
+</span> * @method prompt
+ * Create a prompt dialog.
+ *
+ * @param  {String}   	title 				The title
+ * @param  {String}   	message   			The message
+ * @param  {Object}    	dict 					Buttons as Dictonary
+ * @return {Ti.UI.AlertDialog}
+ */
+function dialogPrompt(title, message, dict) {
+	if (OS_IOS) {
+
+		return dialogConfirm(title, message, dict, {
+			style: Ti.UI.iPhone.AlertDialogStyle.PLAIN_TEXT_INPUT
+		});
+
+	} else if (OS_ANDROID) {
+
+		_.each(dict, function(d) {
+			if (d.cancel === true || d.callback == null) return;
+			d._origCallback = d.callback;
+			d.callback = function(e) {
+				_.extend(e, { text: this.androidView.value });
+				d._origCallback.call(this, e);
+			};
+		});
+
+		return dialogConfirm(title, message, dict, {
+			androidView: Ti.UI.createTextField()
+		});
+
+	}
+}
+exports.prompt = dialogPrompt;
+</pre>
+</body>
+</html>

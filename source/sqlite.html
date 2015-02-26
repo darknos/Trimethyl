@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='SQLite'>/**
+</span> * @class  SQLite
+ * @author Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+<span id='SQLite-property-config'>/**
+</span> * @property config
+ * @property {Boolean} [config.log=false]
+ */
+exports.config = _.extend({
+	log: false
+}, Alloy.CFG.T ? Alloy.CFG.T.sqlite : {});
+
+
+function SQLite(name, file) {
+	if (file == null) {
+		this.db = Ti.Database.open(name);
+	} else {
+		this.db = Ti.Database.install(file, name);
+	}
+}
+
+<span id='SQLite-method-close'>/**
+</span> * @method close
+ * Close the database
+ */
+SQLite.prototype.close = function() {
+	try {
+		this.db.close();
+	} catch (ex) {
+		Ti.API.error(&#39;SQLite: error while closening database&#39;);
+	}
+};
+
+<span id='SQLite-method-execute'>/**
+</span> * @method execute
+ * Execute a query
+ * @param {String} query
+ * @param {Vararg} values
+ * @return {Ti.DB.ResultSet}
+ */
+SQLite.prototype.execute = SQLite.prototype.exec = function() {
+	if (exports.config.log) {
+		Ti.API.debug(&#39;SQLite:&#39;, arguments);
+	}
+	return Function.prototype.apply.call(this.db.execute, this.db, arguments);
+};
+
+<span id='SQLite-method-value'>/**
+</span> * @method value
+ * Return a single value
+ * @param {String} query
+ * @param {Vararg} values
+ */
+SQLite.prototype.value = SQLite.prototype.val = function() {
+	var row = this.execute.apply(this, arguments);
+	if (row.validRow === false) return null;
+	return row.field(0);
+};
+
+<span id='SQLite-method-single'>/**
+</span> * @method single
+ * Return a single object (row)
+ * @param {String} query
+ * @param {Vararg} values
+ */
+SQLite.prototype.single = SQLite.prototype.row = function() {
+	var row = this.execute.apply(this, arguments);
+	if (row.validRow === false) return null;
+	var obj = {};
+	for (var i = 0; i &lt; row.fieldCount; i++) {
+		obj[row.fieldName(i)] = row.field(i);
+	}
+	return obj;
+};
+
+<span id='SQLite-method-list'>/**
+</span> * @method list
+ * Return a list of single values
+ * @param {String} query
+ * @param {Vararg} values
+ */
+SQLite.prototype.list = SQLite.prototype.array = function() {
+	var row = this.execute.apply(this, arguments);
+	var list = [];
+	while (row.validRow === true) {
+		list.push(row.field(0));
+		row.next();
+	}
+	return list;
+};
+
+<span id='SQLite-method-all'>/**
+</span> * @method all
+ * Return a list of objects (row)
+ * @param {String} query
+ * @param {Vararg} values
+ */
+SQLite.prototype.all = SQLite.prototype.rows = function() {
+	var row = this.execute.apply(this, arguments);
+	var list = [];
+	var fieldNames = [];
+	while (row.validRow === true) {
+		var obj = {};
+		for (var i = 0; i &lt; row.fieldCount; i++) {
+			fieldNames[i] = fieldNames[i] || row.fieldName(i);
+			obj[fieldNames[i]] = row.field(i);
+		}
+		list.push(obj);
+		row.next();
+	}
+	return list;
+};
+
+<span id='SQLite-method-loop'>/**
+</span> * @method loop
+ * Loop over query
+ * @param {String} query
+ * @param {Vararg} values
+ */
+SQLite.prototype.loop = function() {
+	var _arguments = _.toArray(arguments);
+	var loopFn = _arguments.pop();
+	if (!_.isFunction(loopFn)) {
+		throw new Error(&#39;SQLite: last argument of SQLite.loop must be a Function&#39;);
+	}
+
+	var row = this.execute.apply(this, _arguments);
+	var fieldNames = [];
+	while (row.validRow === true) {
+		var obj = {};
+		for (var i = 0; i &lt; row.fieldCount; i++) {
+			fieldNames[i] = fieldNames[i] || row.fieldName(i);
+			obj[fieldNames[i]] = row.field(i);
+		}
+		loopFn(obj);
+		row.next();
+	}
+};
+
+module.exports = SQLite;
+</pre>
+</body>
+</html>

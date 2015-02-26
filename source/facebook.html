@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Auth-Facebook'>/**
+</span> * @class  	Auth.Facebook
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+var FB = require(&#39;T/facebook&#39;);
+var _opt = null;
+
+exports.login = function(opt) {
+	_opt = opt;
+	FB.authorize();
+};
+
+exports.logout = function() {
+	FB.logout();
+};
+
+exports.isStoredLoginAvailable = function() {
+	return FB.loggedIn || !_.isEmpty(FB.accessToken);
+};
+
+exports.storedLogin = function(opt) {
+	if (exports.isStoredLoginAvailable()) {
+		opt.success({
+			access_token: FB.accessToken
+		});
+	} else {
+		opt.error();
+	}
+};
+
+/*
+Init
+*/
+
+FB.forceDialogAuth = false;
+FB.addEventListener(&#39;login&#39;, function(e){
+	// This is a security hack caused by iOS SDK that automatically trigger the login event
+	if (_opt == null) {
+		return Ti.API.debug(&#39;Auth.Facebook: login prevented&#39;);
+	}
+
+	if (e.success) {
+		_opt.success({
+			access_token: FB.accessToken
+		});
+	} else {
+		_opt.error({
+			message: (e.error &amp;&amp; e.error.indexOf(&#39;OTHER:&#39;) !== 0) ? e.error : L(&#39;unexpected_error&#39;, &#39;Unexpected error&#39;)
+		});
+	}
+
+	_opt = null;
+});
+</pre>
+</body>
+</html>

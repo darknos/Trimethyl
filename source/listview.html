@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='UIFactory-ListView'>/**
+</span> * @class  	UIFactory.ListView
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+module.exports = function(args) {
+	args = args || {};
+
+	var $this = Ti.UI.createListView(args);
+
+	var DBL_CLICK_TIMEOUT = 500;
+	var devtClick = {};
+	var devtTime = 0;
+
+	$this.addEventListener(&#39;itemclick&#39;, function(e){
+		var evtTime = Date.now();
+		var evtClick = {
+			itemId: e.itemId,
+			bindId: e.bindId,
+			sectionIndex: e.sectionIndex,
+			itemIndex: e.itemIndex
+		};
+
+		if (evtTime - devtTime &lt; DBL_CLICK_TIMEOUT &amp;&amp; _.isEqual(devtClick, evtClick)) {
+			evtClick.section = e.section;
+
+<span id='UIFactory-ListView-event-itemdblclick'>			/**
+</span>			 * @event itemdblclick
+			 * Similar to itemclick, but for double **item** click
+			 */
+			$this.fireEvent(&#39;itemdblclick&#39;, evtClick);
+			evtClick = {}; // prevent non 2n-clicks
+		}
+		devtTime = evtTime;
+		devtClick = evtClick;
+	});
+
+	return $this;
+};</pre>
+</body>
+</html>

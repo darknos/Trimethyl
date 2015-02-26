@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Device'>/**
+</span> * @class  	Device
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+
+<span id='Device-method-getScreenDensity'>/**
+</span> * @method getScreenDensity
+ * Get the device screen density
+ * @return {Number} The density
+ */
+exports.getScreenDensity = function() {
+	if (OS_ANDROID) return Ti.Platform.displayCaps.logicalDensityFactor;
+	return Titanium.Platform.displayCaps.dpi/160;
+};
+
+<span id='Device-method-getScreenWidth'>/**
+</span> * @method getScreenWidth
+ * Get the device screen width
+ * @return {Number} The width
+ */
+exports.getScreenWidth = function() {
+	if (OS_IOS) return Ti.Platform.displayCaps.platformWidth;
+	return Ti.Platform.displayCaps.platformWidth/Ti.Platform.displayCaps.logicalDensityFactor;
+};
+
+<span id='Device-method-getScreenHeight'>/**
+</span> * @method getScreenHeight
+ * Get the device screen width
+ * @return {Number} The height
+ */
+exports.getScreenHeight = function() {
+	if (OS_IOS) return Ti.Platform.displayCaps.platformHeight;
+	return Ti.Platform.displayCaps.platformHeight/Ti.Platform.displayCaps.logicalDensityFactor;
+};
+
+<span id='Device-method-isSimulator'>/**
+</span> * @method isSimulator
+ * Check if current device is a Simulator
+ * @return {Boolean}
+ */
+exports.isSimulator = function() {
+	return Ti.Platform.model === &#39;Simulator&#39; || Ti.Platform.model.indexOf(&#39;sdk&#39;) !== -1;
+};
+
+<span id='Device-method-isIPhone'>/**
+</span> * @method isIPhone
+ * @return {Boolean}
+ */
+exports.isIPhone = function() {
+	return Ti.Platform.osname === &#39;iphone&#39;;
+};
+
+<span id='Device-method-isIPad'>/**
+</span> * @method isIPad
+ * @return {Boolean}
+ */
+exports.isIPad = function() {
+	return Ti.Platform.osname === &#39;ipad&#39;;
+};
+
+<span id='Device-method-getInfo'>/**
+</span> * @method getInfo
+ * @return {Object}
+ */
+exports.getInfo = function() {
+	return _.pick(Ti.Platform, &#39;architecture&#39;, &#39;batteryLevel&#39;, &#39;locale&#39;, &#39;manufacturer&#39;, &#39;model&#39;, &#39;osname&#39;, &#39;runtime&#39;, &#39;username&#39;, &#39;version&#39;);
+};
+</pre>
+</body>
+</html>

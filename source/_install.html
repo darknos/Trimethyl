@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js">var fs = require(&#39;fs&#39;);
+var path = require(&#39;path&#39;);
+
+var base = path.dirname(path.dirname(process.cwd()));
+
+if (!fs.existsSync(path.join(base, &#39;tiapp.xml&#39;))) {
+	process.stderr.write(&quot; \x1b[31;1m Not a valid Titanium project \x1b[0m \n&quot;);
+	process.exit(1);
+}
+
+if (!fs.existsSync(path.join(base, &#39;app&#39;))) {
+	process.stderr.write(&quot; \x1b[31;1m Not a valid Titanium project \x1b[0m \n&quot;);
+	process.exit(1);
+}
+
+if (!fs.existsSync(path.join(base, &#39;app&#39;, &#39;lib&#39;))) {
+	fs.mkdirSync(path.join(base, &#39;app&#39;, &#39;lib&#39;));
+}
+
+fs.symlinkSync(&#39;../../node_modules/trimethyl&#39;, path.join(base, &#39;app&#39;, &#39;lib&#39;, &#39;T&#39;));</pre>
+</body>
+</html>

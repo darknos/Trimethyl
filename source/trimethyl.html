@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Trimethyl'>/**
+</span> * @class  	Trimethyl
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+Ti.Trimethyl = true;
+
+var Util = require(&#39;T/util&#39;);
+var Device = require(&#39;T/device&#39;);
+
+Alloy.Globals.SCREEN_WIDTH = Device.getScreenWidth();
+Alloy.Globals.SCREEN_HEIGHT = Device.getScreenHeight();
+Alloy.Globals.SCREEN_DENSITY = Device.getScreenDensity();
+Alloy.Globals.SIMULATOR  = Device.isSimulator();
+
+Alloy.Globals.SCREEN_RETINA = +Alloy.Globals.SCREEN_DENSITY === 2;
+Alloy.Globals.IOS7 = Util.isIOS7();
+Alloy.Globals.IOS8 = Util.isIOS8();
+
+Ti.App.addEventListener(&#39;openURL&#39;, function(e){
+	Ti.Platform.openURL(e.url);
+});</pre>
+</body>
+</html>

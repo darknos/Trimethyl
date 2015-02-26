@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Cache'>/**
+</span> * @class  	Cache
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+<span id='Cache-property-config'>/**
+</span> * @property config
+ * @property {String} [config.strategy=&quot;database&quot;] The default strategy
+ */
+exports.config = _.extend({
+	strategy: &#39;database&#39;
+}, Alloy.CFG.T ? Alloy.CFG.T.cache : {});
+
+// Driver loader
+function load(name) {
+	return require(&#39;T/cache/&#39;+name);
+}
+
+module.exports = load(exports.config.strategy);</pre>
+</body>
+</html>

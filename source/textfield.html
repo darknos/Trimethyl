@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='UIFactory-TextField'>/**
+</span> * @class  	UIFactory.TextField
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ *
+ * * Removed the annoying autofocus on Android
+ *
+ */
+
+function getDoneToolbar(opt) {
+	var $doneBtn = Ti.UI.createButton({
+		title: L(&#39;done&#39;, &#39;Done&#39;),
+		style: Ti.UI.iPhone.SystemButtonStyle.DONE
+	});
+	$doneBtn.addEventListener(&#39;click&#39;, opt.done);
+
+	return Ti.UI.iOS.createToolbar({
+		borderTop: true,
+		borderBottom: true,
+		items:[
+			Ti.UI.createButton({ systemButton: Ti.UI.iPhone.SystemButton.FLEXIBLE_SPACE }),
+			$doneBtn
+		]
+	});
+}
+
+module.exports = function(args) {
+	_.defaults(args, {
+
+<span id='UIFactory-TextField-property-textType'>		/**
+</span>		 * @property {String} textType
+		 * Can be
+		 *
+		 * * `email`
+		 * * `password`
+		 * * `passwordEye`
+		 *
+		 * to adjust the keyboard or the mask automatically.
+		 */
+		textType: &#39;text&#39;,
+
+<span id='UIFactory-TextField-property-useDoneToolbar'>		/**
+</span>		 * @property {Boolean} [useDoneToolbar=false] Add a default toolbar with a *Done* button that simply blur the TextField.
+		 */
+		useDoneToolbar: false,
+
+	});
+
+
+	switch (args.textType) {
+
+		case &#39;number&#39;:
+		args.keyboardType = Ti.UI.KEYBOARD_DECIMAL_PAD;
+		break;
+
+		case &#39;email&#39;:
+		args.keyboardType = Ti.UI.KEYBOARD_EMAIL;
+		args.autocapitalization = Ti.UI.TEXT_AUTOCAPITALIZATION_NONE;
+		args.autocorrect = false;
+		break;
+
+		case &#39;password&#39;:
+		args.passwordMask = true;
+		break;
+
+		case &#39;passwordEye&#39;:
+		args.passwordMask = true;
+		break;
+	}
+
+	var $this = Ti.UI.createTextField(args);
+
+
+	//////////////////////
+	// Parse arguments //
+	//////////////////////
+
+	// Password Eye
+	if (OS_IOS &amp;&amp; args.textType === &#39;passwordEye&#39;) {
+		var eyeButton = Ti.UI.createButton({
+			image: args.passwordEyeImage,
+			height: 40,
+			width: 40,
+			opacity: 0.2,
+			active: false,
+			tintColor: $this.color
+		});
+		$this.setRightButton(eyeButton);
+		$this.setRightButtonPadding(0);
+		$this.setRightButtonMode(Ti.UI.INPUT_BUTTONMODE_ALWAYS);
+
+		eyeButton.addEventListener(&#39;click&#39;, function(){
+			eyeButton.active = !eyeButton.active;
+			eyeButton.opacity = eyeButton.active ? 1 : 0.2;
+			$this.setPasswordMask(!eyeButton.active);
+		});
+	}
+
+
+	if (OS_IOS &amp;&amp; args.useDoneToolbar) {
+		$this.keyboardToolbar = getDoneToolbar({
+			done: function() {
+				$this.blur();
+			},
+			cancel: function() {
+				$this.blur();
+			}
+		});
+	}
+
+	// Remove autofocus
+	if (OS_ANDROID) {
+		$this.setSoftKeyboardOnFocus(Ti.UI.Android.SOFT_KEYBOARD_HIDE_ON_FOCUS);
+		$this.addEventListener(&#39;touchstart&#39;,  function() {
+			$this.setSoftKeyboardOnFocus(Ti.UI.Android.SOFT_KEYBOARD_SHOW_ON_FOCUS);
+		});
+	}
+
+	return $this;
+};</pre>
+</body>
+</html>

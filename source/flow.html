@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Flow'>/**
+</span> * @class  	Flow
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+<span id='Flow-property-config'>/**
+</span> * @property config
+ * @property {Boolean} [config.trackWithGA=true] Send the trackScreen to GA
+ * @property {Boolean} [config.trackTimingWithGA=true] Track the timing of focus/blur of the window to GA
+ */
+exports.config = _.extend({
+	trackWithGA: true,
+	trackTimingWithGA: true
+}, Alloy.CFG.T ? Alloy.CFG.T.flow : {});
+
+var Event = require(&#39;T/event&#39;);
+
+var Navigator = null;
+var windowsStack = [];
+var currentController = null;
+
+<span id='Flow-property-currentControllerName'>/**
+</span> * @property currentControllerName
+ * @type {Object}
+ */
+exports.currentControllerName = null;
+
+<span id='Flow-property-currentControllerArgs'>/**
+</span> * @property currentControllerArgs
+ * @type {Object}
+ */
+exports.currentControllerArgs = null;
+
+<span id='Flow-method-event'>/**
+</span> * @method event
+ */
+exports.event = function(name, cb) {
+	Event.on(&#39;flow.&#39; + name, cb);
+};
+
+function track($window, route) {
+	// Track screen with GA
+	if (exports.config.trackWithGA) {
+		require(&#39;T/ga&#39;).trackScreen(route);
+	}
+
+	// Track timing with GA
+	if (exports.config.trackTimingWithGA) {
+		var startFocusTime = null;
+
+		$window.addEventListener(&#39;focus&#39;, function(){
+			startFocusTime = Date.now();
+		});
+
+		$window.addEventListener(&#39;blur&#39;, function(){
+			if (startFocusTime === null) return;
+			require(&#39;T/ga&#39;).trackTiming(route, Date.now() - startFocusTime);
+		});
+	}
+}
+
+function open(name, args, openArgs, route, useNav) {
+	args = args || {};
+	openArgs = openArgs || {};
+	route = route || name;
+
+	var controller = Alloy.createController(name, args);
+	exports.setCurrentController(controller, name, args);
+
+	// Get the main window to track focus/blur
+	var $window = controller.getView();
+
+	// Check if the getView is a NavigationController, in that case, $window is the subwindow
+	if ($window.window) $window = $window.window;
+
+	exports.setCurrentWindow($window, route);
+
+	// Clean up controller on window close
+	$window.addEventListener(&#39;close&#39;, function() {
+		controller.off(); // Turn off Backbone Events
+		controller.destroy(); // Destroy by KrolllBridge
+		if (_.isFunction(controller.cleanup)) {
+			controller.cleanup();
+		}
+
+		controller = null;
+		$window = null;
+	});
+
+	// Open the window
+	if (useNav) {
+		Navigator.openWindow($window, openArgs);
+	} else {
+		if (_.isFunction(controller.open)) {
+			controller.open(openArgs);
+		} else {
+			$window.open(openArgs);
+		}
+	}
+
+	return controller;
+}
+
+function onWindowClose(e) {
+	var route = e.source._route;
+	Event.trigger(&#39;flow.close&#39;, {
+		route: route,
+	});
+
+	var index = -1;
+	for (var k in windowsStack) {
+		if (windowsStack[k]._route === route) {
+			windowsStack.splice(+k, 1);
+			return;
+		}
+	}
+}
+
+<span id='Flow-method-startup'>/**
+</span> * Set, in a single way, the global Navigator (and open it), the Index-Controller and the Index-Window
+ *
+ * This method, is typically called on startup, on the index.js, like this:
+ *
+ * ```
+ * Flow.startup($, $.nav, $.win, &#39;index&#39;, {});
+ * ```
+ *
+ * @param  {Alloy.Controller} 				controller
+ * @param  {Ti.UI.iOS.NavigationWindow} 	nav
+ * @param  {Ti.UI.Window} 						win
+ * @param  {String}								controllerName
+ * @param  {String}								controllerArgs
+ */
+exports.startup = function(controller, nav, win, controllerName, controllerArgs) {
+	exports.setCurrentWindow(win, &#39;/&#39; + controllerName);
+	exports.setCurrentController(controller, controllerName, controllerArgs);
+	exports.setNavigationController(nav, true);
+
+	// Reset variables
+	windowsStack = [];
+};
+
+
+<span id='Flow-method-openDirect'>/**
+</span> * @method openDirect
+ * Require an Alloy.Controller without passing it to the Navigator
+ *
+ * This is anyway tracked with Google Analitycs
+ *
+ * @param  {String} 	name 				The name of the controller
+ * @param  {Object} 	[args]     		The args passed to the controller
+ * @param  {String} 	[route]				Optional route that identify this controller
+ * @return {Alloy.Controller} 		The controller instance
+ */
+exports.openDirect = function(name, args, openArgs, route) {
+	return open(name, args, openArgs, route, false);
+};
+
+<span id='Flow-method-open'>/**
+</span> * @method open
+ * Require an Alloy.Controller and open its main `View` in the Navigator.
+ *
+ * A `close` event is automatically attached to the main window to call sequentially
+ * `Controller.cleanup` (if defined) and `Controller.destroy`
+ *
+ * This is tracked with Google Analitycs
+ *
+ * @param  {String} 	name 				The name of the controller
+ * @param  {Object} 	[args]       	The arguments passed to the controller
+ * @param  {Object} 	[openArgs]     The arguments passed to the `Navigator.openWindow`
+ * @param  {String} 	[route]				Optional route that identify this controller
+ * @return {Alloy.Controller}    	The controller instance
+ */
+exports.open = function(name, args, openArgs, route) {
+	if (Navigator === null) {
+		return Ti.API.warn(&#39;Flow: A Navigator is not defined yet&#39;);
+	}
+
+	return open(name, args, openArgs, route, true);
+};
+
+<span id='Flow-method-close'>/**
+</span> * Close current Navigatgor and all windows associated with it
+ */
+exports.close = function() {
+	if (Navigator === null) return;
+
+	windowsStack = [];
+	Navigator.close();
+	Navigator = null;
+};
+
+<span id='Flow-method-setCurrentController'>/**
+</span> * @method setCurrentController
+ * Set current controller
+ * @param {Alloy.Controller} 	controller
+ * @param {String} 				[name]
+ * @param {Object}				[args]
+ */
+exports.setCurrentController = function(controller, name, args) {
+	currentController = controller;
+	exports.currentControllerName = name;
+	exports.currentControllerArgs = args;
+};
+
+<span id='Flow-method-getCurrentController'>/**
+</span> * @method getCurrentController
+ * Return current controller
+ * @return {Alloy.Controller}
+ */
+exports.getCurrentController = function() {
+	return currentController;
+};
+
+<span id='Flow-method-setCurrentWindow'>/**
+</span> * @method setCurrentWindow
+ * Set current Window and push in the windows stack
+ * @param {Ti.UI.Window} $window
+ * @param {String} route
+ */
+exports.setCurrentWindow = function($window, route) {
+	$window._route = route;
+	windowsStack.push($window);
+
+	// Track with GA
+	track($window, route);
+
+	// Add listener
+	$window.addEventListener(&#39;close&#39;, onWindowClose);
+};
+
+<span id='Flow-method-getWindows'>/**
+</span> * @method getWindows
+ * Return the windows stacks
+ * @return {Array}
+ */
+exports.getWindows = function() {
+	return windowsStack;
+};
+
+<span id='Flow-method-getCurrentWindow'>/**
+</span> * @method getCurrentWindow
+ * Get current Window
+ * @return {Ti.UI.Window}
+ */
+exports.getCurrentWindow = function() {
+	return _.last(windowsStack);
+};
+
+
+<span id='Flow-method-setNavigationController'>/**
+</span> * @method setNavigationController
+ * Set the Navigator used to open the windows
+ *
+ * ** This is required before opening windows **
+ *
+ * @param {Object} 	nav 			The instance of Ti.UI.iOS.NavigationWindow or compatible
+ * @param {Boolean} 	[openNow] 	Specify if call instantly the open on the navigator
+ */
+exports.setNavigationController = function(nav, openNow) {
+	Navigator = nav;
+	if (openNow === true) {
+		Navigator.open();
+	}
+};
+
+
+<span id='Flow-method-getNavigationController'>/**
+</span> * @method getNavigationController
+ * Return the instance set of Navigator
+ * @return {Object}
+ */
+exports.getNavigationController = function() {
+	return Navigator;
+};
+
+
+<span id='Flow-method-closeAllWindowsExceptFirst'>/**
+</span> * @method closeAllWindowsExceptFirst
+ * Close all windows, except first.
+ */
+exports.closeAllWindowsExceptFirst = function() {
+	var wins = _.clone(windowsStack);
+	for (var i = wins.length-2; i &gt; 0; i--) {
+		wins[i].close({ animated: false });
+	}
+	wins[wins.length-1].close();
+};
+</pre>
+</body>
+</html>

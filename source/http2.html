@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Notifications-HTTP'>/**
+</span> * @class  	Notifications.HTTP
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+<span id='Notifications-HTTP-property-config'>/**
+</span> * @property config
+ * @property {String} config.endpoint 					URL for subscription
+ */
+exports.config = _.extend({
+	endpoint: null,
+}, (Alloy.CFG.T &amp;&amp; Alloy.CFG.T.notifications) ? Alloy.CFG.T.notifications.http : {});
+
+var HTTP = require(&#39;T/http&#39;);
+
+exports.subscribe = function(opt) {
+	HTTP.send({
+		url: exports.config.endpoint,
+		method: &#39;POST&#39;,
+		data: _.extend({}, opt.data, {
+			device_token: opt.deviceToken,
+			channel: opt.channel,
+			app_version: Ti.App.version,
+			app_deploytype: (Ti.App.deployType === &#39;production&#39; ? &#39;production&#39; : &#39;development&#39;),
+			os: (function() {
+				if (OS_IOS) return 1;
+				if (OS_ANDROID) return 2;
+			})(),
+		}),
+		success: opt.success,
+		error: opt.error,
+		errorAlert: false
+	});
+};
+
+exports.unsubscribe = function(opt) {
+	HTTP.send({
+		url: exports.config.endpoint + &#39;/&#39; + opt.deviceToken,
+		method: &#39;DELETE&#39;,
+		data: _.extend({}, opt.data, {
+			device_token: opt.deviceToken,
+			channel: opt.channel,
+		}),
+		success: opt.success,
+		error: opt.error,
+		errorAlert: false
+	});
+};</pre>
+</body>
+</html>

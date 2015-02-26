@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>The source code</title>
+  <link href="../resources/prettify/prettify.css" type="text/css" rel="stylesheet" />
+  <script type="text/javascript" src="../resources/prettify/prettify.js"></script>
+  <style type="text/css">
+    .highlight { display: block; background-color: #ddd; }
+  </style>
+  <script type="text/javascript">
+    function highlight() {
+      document.getElementById(location.hash.replace(/#/, "")).className = "highlight";
+    }
+  </script>
+</head>
+<body onload="prettyPrint(); highlight();">
+  <pre class="prettyprint lang-js"><span id='Geo'>/**
+</span> * @class  	Geo
+ * @author  Flavio De Stefano &lt;flavio.destefano@caffeinalab.com&gt;
+ */
+
+<span id='Geo-property-config'>/**
+</span> * @property config
+ * @property {String} [config.gpsAccuracy=&quot;ACCURACY_HIGH&quot;] Accuracy of localization. Must be one of `&#39;ACCURACY_HIGH&#39;` and `&#39;ACCURACY_LOW&#39;`
+ * @property {Boolean} [config.geocodeUseGoogle=true] Tell to use Google Services instead of Titanium geocoding services.
+ * @property {Number} [config.clusterPixelRadius=15] The clustering radius expressed in px.
+ * @property {Boolean} [config.clusterRemoveOutofBB=true] Tell the clustering to remove pins that are out of the bounding box.
+ * @property {Number} [config.clusterMaxDelta=0.3] The value before the clustering is off.
+ */
+exports.config = _.extend({
+	gpsAccuracy: &#39;ACCURACY_HIGH&#39;,
+	geocodeUseGoogle: true,
+	clusterPixelRadius: 15,
+	clusterRemoveOutofBB: true,
+	clusterMaxDelta: 0.3
+}, Alloy.CFG.T ? Alloy.CFG.geo : {});
+
+var Event = require(&#39;T/event&#39;);
+var HTTP = require(&#39;T/http&#39;);
+var Util = require(&#39;T/util&#39;);
+
+
+function checkForServices() {
+	return Ti.Geolocation.locationServicesEnabled;
+}
+
+<span id='Geo-method-getCurrentPosition'>/**
+</span> * @method getCurrentPosition
+ * Get the current GPS coordinates of user using `Ti.Geolocation.getCurrentPosition`
+ *
+ * A `geo.start` event is triggered at start, and a `geo.end` event is triggered on end
+ *
+ * @param {Object}	opt
+ */
+exports.getCurrentPosition = function(opt) {
+	if (!exports.isAuthorized()) {
+		if (_.isFunction(opt.complete)) opt.complete();
+		if (_.isFunction(opt.error)) opt.error({ servicesDisabled: true });
+		return;
+	}
+
+	if (opt.silent !== false) Event.trigger(&#39;geo.start&#39;);
+
+	Ti.Geolocation.getCurrentPosition(function(e) {
+		if (_.isFunction(opt.complete)) opt.complete();
+		if (opt.silent !== false) Event.trigger(&#39;geo.end&#39;);
+
+		if (e.success === true &amp;&amp; e.coords != null) {
+			if (_.isFunction(opt.success)) opt.success(e.coords);
+		} else {
+			if (_.isFunction(opt.error)) opt.error({});
+		}
+	});
+};
+
+
+<span id='Geo-method-startNavigator'>/**
+</span> * @method startNavigator
+ * Open Apple Maps on iOS, Google Maps on Android and route from user location to defined location
+ * @param  {Number} lat  		Desination latitude
+ * @param  {Number} lng  		Destination longitude
+ * @param  {String} [mode] 	GPS mode used (walking,driving)
+ */
+exports.startNavigator = function(lat, lng, mode) {
+	exports.getCurrentPosition({
+		success: function(g) {
+
+			Ti.Platform.openURL(
+				(OS_IOS ? &#39;http://maps.apple.com/&#39; : &#39;https://maps.google.com/maps/&#39;) +
+				Util.buildQuery({
+					directionsmode: mode || &#39;walking&#39;,
+					saddr: g.latitude + &#39;,&#39; + g.longitude,
+					daddr: lat + &#39;,&#39; + lng
+				})
+			);
+
+		}
+	});
+};
+
+
+<span id='Geo-method-geocode'>/**
+</span> * @method geocode
+ * Return the coordinates of an address
+ * @param {Object} opt
+ */
+exports.geocode = function(opt) {
+	if (exports.config.geocodeUseGoogle === true) {
+
+		HTTP.send({
+			url: &#39;http://maps.googleapis.com/maps/api/geocode/json&#39;,
+			cache: false,
+			data: {
+				address: opt.address,
+				sensor: &#39;false&#39;
+			},
+			format: &#39;json&#39;,
+			success: function(res) {
+				if (res.status !== &#39;OK&#39; || _.isEmpty(res.results)) {
+					if (_.isFunction(opt.error)) opt.error();
+					return;
+				}
+
+				opt.success({
+					success: true,
+					latitude: res.results[0].geometry.location.lat,
+					longitude: res.results[0].geometry.location.lng
+				});
+			},
+			error: opt.error
+		});
+
+	} else {
+
+		Ti.Geolocation.forwardGeocoder(opt.address, function(res) {
+			if (!res.success) {
+				if (_.isFunction(opt.error)) opt.error();
+				return;
+			}
+
+			opt.success({
+				success: true,
+				latitude: res.latitude,
+				longitude: res.longitude
+			});
+		});
+	}
+};
+
+
+<span id='Geo-method-reverseGeocode'>/**
+</span> * @method reverseGeocode
+ * Return the address with the specified coordinates
+ * @param {Object} opt
+ */
+exports.reverseGeocode = function(opt) {
+	if (exports.config.useGoogleForGeocode) {
+
+		HTTP.send({
+			url: &#39;http://maps.googleapis.com/maps/api/geocode/json&#39;,
+			noCache: true,
+			data: {
+				latlng: opt.lat + &#39;,&#39; + opt.lng,
+				sensor: &#39;false&#39;
+			},
+			format: &#39;json&#39;,
+			success: function(res) {
+				if (res.status !== &#39;OK&#39; || res.results.length === 0) {
+					if (_.isFunction(opt.error)) opt.error();
+					return;
+				}
+
+				opt.success({
+					success: true,
+					address: res.results[0].formatted_address,
+					results: res.results
+				});
+			},
+			error: opt.error
+		});
+
+	} else {
+
+		Ti.Geolocation.reverseGeocoder(opt.lat, opt.lng, function(res) {
+			if (!res.success || _.isEmpty(res.places)) {
+				if (_.isFunction(opt.error)) opt.error();
+				return;
+			}
+
+			opt.success({
+				success: true,
+				address: res.places[0].address,
+				results: res.places
+			});
+		});
+	}
+};
+
+
+function deg2rad(deg) {
+	return deg * 0.017453; // return deg * (Math.PI/180); OPTIMIZE! :*
+}
+
+function dist(a,b) {
+	return Math.sqrt(Math.pow(a,2) + Math.pow(b,2)).toFixed(2);
+}
+
+<span id='Geo-method-distanceInKm'>/**
+</span> * @method distanceInKm
+ * Return the distance express in km between two points of the earth
+ *
+ * @param  {Number} lat1 The latitude of first point
+ * @param  {Number} lon1 The longitude of first point
+ * @param  {Number} lat2 The latitude of second point
+ * @param  {Number} lon2 The longitude of second point
+ * @return {Number} The distance expressed in km
+ */
+exports.distanceInKm = function(lat1, lon1, lat2, lon2) {
+	var dLat = deg2rad(lat2 - lat1) / 2;
+	var dLon = deg2rad(lon2 - lon1) / 2;
+	var a = Math.sin(dLat) * Math.sin(dLat) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon) * Math.sin(dLon);
+	return 12742 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+
+<span id='Geo-method-markerCluster'>/**
+</span> * @method markerCluster
+ * Process a set of markers and cluster them
+ * @param  {Object} e       	The arguments retrived from TiMap.addEventListener(&#39;regionchanged&#39;, **event**)
+ * @param  {Object} markers 	The markers **must be** an instance of `Backbone.Collection` or an Object id-indexed
+ * @param  {Object} [keys] 	The keys of the object to get informations. Default: `{ latitude: &#39;lat&#39;, longitude: &#39;lng&#39;, id: &#39;id&#39; }`
+ * @return {Array}
+ */
+exports.markerCluster = function(e, markers, keys){
+	_.defaults(keys, {
+		latitude: &#39;lat&#39;,
+		longitude: &#39;lng&#39;,
+		id: &#39;id&#39;
+	});
+
+	var c = {};
+	var g = {};
+
+	/* latR, lngR represents the current degrees visible */
+	var latR = (e.source.size.height || Alloy.Globals.SCREEN_HEIGHT) / e.latitudeDelta;
+	var lngR = (e.source.size.width || Alloy.Globals.SCREEN_WIDTH) / e.longitudeDelta;
+
+	var degreeLat = 2 * exports.config.clusterPixelRadius / latR;
+	var degreeLng = 2 * exports.config.clusterPixelRadius / lngR;
+
+	var boundingBox = [
+		e.latitude - e.latitudeDelta/2 - degreeLat,
+		e.longitude + e.longitudeDelta/2 + degreeLng,
+		e.latitude + e.latitudeDelta/2 + degreeLat,
+		e.longitude - e.longitudeDelta/2 - degreeLng
+	];
+
+	var isBackbone = (markers instanceof Backbone.Collection);
+
+	function removeOutOfBBFunction(m){
+		var tmpLat = parseFloat( isBackbone ? m.get(keys.latitude) : m[keys.latitude] );
+		var tmpLng = parseFloat( isBackbone ? m.get(keys.longitude) : m[keys.longitude] );
+		if (tmpLat &lt; boundingBox[2] &amp;&amp; tmpLat &gt; boundingBox[0] &amp;&amp; tmpLng &gt; boundingBox[3] &amp;&amp; tmpLng &lt; boundingBox[1]) {
+			c[m[keys.id]] = { latitude: tmpLat, longitude: tmpLng };
+		}
+	}
+
+	function createCObjFunction(m) {
+		var tmpLat = parseFloat( isBackbone === true ? m.get(keys.latitude) : m[keys.latitude] );
+		var tmpLng = parseFloat( isBackbone === true ? m.get(keys.longitude) : m[keys.longitude] );
+		c[m.id] = { latitude: tmpLat, longitude: tmpLng };
+	}
+
+
+	// Start clustering
+
+	if (isBackbone === true) {
+		markers.map(exports.config.clusterRemoveOutOfBB === true ? removeOutOfBBFunction : createCObjFunction);
+	} else {
+		_.each(markers, exports.config.clusterRemoveOutOfBB === true ? removeOutOfBBFunction : createCObjFunction);
+	}
+
+	// Cycle over all markers, and group in {g} all nearest markers by {id}
+	var zoomToCluster = e.longitudeDelta &gt; exports.config.clusterMaxDelta;
+	_.each(c, function(a, id){
+		_.each(c, function(b, jd){
+			if (id == jd || zoomToCluster === false) return;
+			var dst = dist(lngR * Math.abs(a.latitude - b.latitude), lngR * Math.abs(a.longitude - b.longitude));
+			if (dst &lt; exports.config.pixelRadius) {
+				if (!(id in g)) g[id] = [id];
+				g[id].push(jd);
+				delete c[jd];
+			}
+		});
+		if (!(id in g)) g[id] = [id];
+		delete c[id];
+	});
+
+	// cycle all over pin and calculate the average of group pin
+	_.each(g, function(a, id){
+		c[id] = { latitude: 0.0,  longitude: 0.0, count: _.keys(a).length };
+		_.each(a, function(b){
+			c[id].latitude += parseFloat(isBackbone ? markers.get(b).get(keys.latitude) : markers[b][keys.latitude]);
+			c[id].longitude += parseFloat(isBackbone ? markers.get(b).get(keys.longitude) : markers[b][keys.longitude]);
+		});
+		c[id].latitude = c[id].latitude / c[id].count;
+		c[id].longitude = c[id].longitude / c[id].count;
+	});
+
+
+	// Set all annotations
+	var data = [];
+	_.each(c, function(a, id){
+		if (a.count &gt; 1) {
+			data.push({
+				latitude: parseFloat(c[id].latitude.toFixed(2)),
+				longitude: parseFloat(c[id].longitude.toFixed(2)),
+				count: c[id].count
+			});
+		} else {
+			data.push(+id);
+		}
+	});
+
+	return data;
+};
+
+
+<span id='Geo-method-checkForDependencies'>/**
+</span> * @method checkForDependencies
+ * Check if the Google Play Services are installed and updated,
+ * otherwise Maps doesn&#39;t work and the app crashes.
+ *
+ * It the check fail, an error is displayed that redirect to the Play Store,
+ * and the app is terminated.
+ *
+ * On iOS, simply return `true`
+ *
+ * @return {Boolean}
+ */
+exports.checkForDependencies = function() {
+	if (OS_IOS) return false;
+
+	var TiMap = require(&#39;ti.map&#39;);
+	var rc = TiMap.isGooglePlayServicesAvailable();
+
+	if (rc === TiMap.SUCCESS) {
+		return true;
+	}
+
+	var errorMessage = null;
+	switch (rc) {
+		case TiMap.SERVICE_MISSING:
+		errorMessage = L(&#39;googleplayservices_missing&#39;, &#39;Google Play services is missing. Please install Google Play services from the Google Play store in order to use the application.&#39;);
+		break;
+		case TiMap.SERVICE_VERSION_UPDATE_REQUIRED:
+		errorMessage = L(&#39;googleplayservices_outofdate&#39;, &#39;Google Play services is out of date. Please update Google Play services in order to use the application.&#39;);
+		break;
+		case TiMap.SERVICE_DISABLED:
+		errorMessage = L(&#39;googleplayservices_disabled&#39;, &#39;Google Play services is disabled. Please enable Google Play services in order to use the application.&#39;);
+		break;
+		case TiMap.SERVICE_INVALID:
+		errorMessage = L(&#39;googleplayservices_invalid&#39;, &#39;Google Play services cannot be authenticated. Reinstall Google Play services in order to use the application.&#39;);
+		break;
+		default:
+		errorMessage = L(&#39;googleplayservices_error&#39;, &#39;Google Play services generated an unknown error. Reinstall Google Play services in order to use the application.&#39;);
+		break;
+	}
+
+	// Open Play Store to download
+	require(&#39;T/dialog&#39;).errorAlert(errorMessage, function(){
+		Ti.Platform.openURL(&#39;https://play.google.com/store/apps/details?id=com.google.android.gms&#39;);
+		Ti.Android.currentActivity.finish();
+	});
+};
+
+
+<span id='Geo-method-getRegionBounds'>/**
+</span> * @method getRegionBounds
+ * Get the minimum MapRegion to include all annotations in array
+ * @param  {Object} 	array 	An array of annotations
+ * @param  {Number}	mulGap	Gap multiplier
+ * @return {Map.MapRegionType}
+ */
+exports.getRegionBounds = function(array, mulGap) {
+	mulGap = mulGap || 1.4;
+	var lats = _.pluck(array, &#39;latitude&#39;);
+	var lngs = _.pluck(array, &#39;longitude&#39;);
+	var bb = [ _.min(lats), _.min(lngs), _.max(lats), _.max(lngs) ];
+	return {
+		latitude: (bb[0] + bb[2]) / 2,
+		longitude: (bb[1] + bb[3]) / 2,
+		latitudeDelta: mulGap * (bb[2] - bb[0]),
+		longitudeDelta: mulGap * (bb[3] - bb[1])
+	};
+};
+
+<span id='Geo-method-isAuthorized'>/**
+</span> * @method isAuthorized
+ * Check if the location services are enabled and the app is authorized to use them.
+ * @return {Boolean}
+ */
+exports.isAuthorized = function() {
+	if (Ti.Geolocation.locationServicesEnabled) {
+		if (OS_ANDROID) {
+			return true;
+		} else if (OS_IOS) {
+			return Ti.Geolocation.locationServicesAuthorization === Ti.Geolocation.AUTHORIZATION_AUTHORIZED;
+		} else {
+			return false;
+		}
+	}
+	return false;
+};
+
+<span id='Geo-method-isDenied'>/**
+</span> * @method isDenied
+ * Check if the the app is denied from using the location services in iOS.
+ * Returns false for every other platform.
+ * @return {Boolean}
+ */
+exports.isDenied = function() {
+	if (OS_IOS) {
+		return Ti.Geolocation.locationServicesAuthorization === Ti.Geolocation.AUTHORIZATION_DENIED;
+	}
+	return false;
+};
+
+
+//////////
+// Init //
+//////////
+
+Ti.Geolocation.accuracy = Ti.Geolocation[exports.config.gpsAccuracy];
+</pre>
+</body>
+</html>
